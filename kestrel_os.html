@@ -1,0 +1,2086 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kestrel OS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   KESTREL OS  ·  design tokens
+   Light appliance chrome over a petrol desk. Amber signal lamps.
+   ============================================================ */
+:root{
+  --desk-1:#0e414c;
+  --desk-2:#04161c;
+  --shell:#d6d3cb;
+  --shell-hi:#e9e6de;
+  --shell-lo:#b9b6ad;
+  --edge:#a5a29a;
+  --paper:#f8f7f3;
+  --paper-2:#eeece6;
+  --ink:#1b1d1e;
+  --dim:#6c7072;
+  --amber:#f0a92c;
+  --go:#4f9d69;
+  --stop:#cf5a4c;
+  --field:#12171a;
+  --field-ink:#dfe6e3;
+
+  --r-win:10px;
+  --r-ctl:6px;
+  --r-chip:4px;
+
+  --shadow-win:0 1px 0 rgba(255,255,255,.5) inset, 0 18px 40px rgba(0,0,0,.45), 0 2px 6px rgba(0,0,0,.3);
+  --bar:48px;
+  --ui:"Space Grotesk", "Helvetica Neue", Inter, system-ui, sans-serif;
+  --mono:"JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --t:160ms cubic-bezier(.2,.7,.3,1);
+}
+html[data-theme="dark"]{
+  --shell:#2a2e31;
+  --shell-hi:#383d41;
+  --shell-lo:#202325;
+  --edge:#15181a;
+  --paper:#1a1d1f;
+  --paper-2:#212527;
+  --ink:#e4e2dc;
+  --dim:#9aa0a2;
+  --desk-1:#131a1d;
+  --desk-2:#05090b;
+  --shadow-win:0 1px 0 rgba(255,255,255,.06) inset, 0 18px 40px rgba(0,0,0,.6), 0 2px 6px rgba(0,0,0,.5);
+}
+html[data-motion="off"] *{animation:none !important; transition:none !important;}
+
+*{box-sizing:border-box; margin:0; padding:0;}
+html,body{height:100%; overflow:hidden;}
+body{
+  font-family:var(--ui);
+  font-size:13px;
+  line-height:1.5;
+  color:var(--ink);
+  background:var(--desk-2);
+  -webkit-font-smoothing:antialiased;
+  user-select:none;
+  touch-action:manipulation;
+}
+button,input,textarea,select{font:inherit; color:inherit;}
+button{cursor:pointer; background:none; border:none;}
+:focus-visible{outline:2px solid var(--amber); outline-offset:1px;}
+::-webkit-scrollbar{width:10px;height:10px;}
+::-webkit-scrollbar-thumb{background:var(--edge); border-radius:6px; border:3px solid transparent; background-clip:content-box;}
+::-webkit-scrollbar-track{background:transparent;}
+
+/* ---------- physical control surface ---------- */
+.ctl{
+  background:linear-gradient(180deg,var(--shell-hi),var(--shell));
+  border:1px solid var(--edge);
+  border-radius:var(--r-ctl);
+  box-shadow:0 1px 0 rgba(255,255,255,.55) inset, 0 1px 1px rgba(0,0,0,.12);
+  padding:5px 11px;
+  color:var(--ink);
+  transition:transform var(--t), background var(--t);
+}
+.ctl:hover{background:linear-gradient(180deg,#fff,var(--shell-hi));}
+html[data-theme="dark"] .ctl:hover{background:linear-gradient(180deg,#43494d,var(--shell-hi));}
+.ctl:active{transform:translateY(1px); box-shadow:0 1px 2px rgba(0,0,0,.2) inset;}
+.ctl[aria-pressed="true"], .ctl.on{
+  background:linear-gradient(180deg,var(--shell-lo),var(--shell));
+  box-shadow:0 2px 4px rgba(0,0,0,.22) inset;
+  border-color:var(--amber);
+}
+
+/* ============================================================
+   BOOT
+   ============================================================ */
+#boot{
+  position:fixed; inset:0; z-index:9000;
+  background:#07090a;
+  color:#cfd6d4;
+  font-family:var(--mono);
+  font-size:13px;
+  padding:clamp(20px,6vh,70px) clamp(18px,7vw,90px);
+  display:flex; flex-direction:column; gap:2px;
+  overflow:hidden;
+}
+#boot .mark{
+  font-family:var(--ui); font-weight:700; letter-spacing:-.02em;
+  font-size:28px; color:var(--amber); margin-bottom:14px;
+}
+#boot .mark small{display:block; font-size:11px; letter-spacing:.08em; color:#6d7a78; font-weight:500;}
+#boot .row{display:flex; gap:8px; white-space:nowrap;}
+#boot .row .dots{flex:1; overflow:hidden; color:#39433f;}
+#boot .ok{color:var(--go);}
+#boot .cur{display:inline-block; width:8px; height:15px; background:var(--amber); vertical-align:-3px; animation:blink 1s steps(1) infinite;}
+@keyframes blink{50%{opacity:0}}
+#boot.done{animation:bootOut .5s ease forwards;}
+@keyframes bootOut{to{opacity:0; visibility:hidden;}}
+
+/* ============================================================
+   LOCK
+   ============================================================ */
+#lock{
+  position:fixed; inset:0; z-index:8000;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px;
+  background:radial-gradient(120% 90% at 50% 0%, var(--desk-1), var(--desk-2));
+  color:#eef2f1;
+}
+#lock .clock{font-size:clamp(48px,11vw,96px); font-weight:600; letter-spacing:-.04em; line-height:1;}
+#lock .date{color:#8fa6a4; letter-spacing:.02em;}
+#lock .avatar{
+  width:62px;height:62px;border-radius:50%;
+  background:linear-gradient(180deg,var(--shell-hi),var(--shell-lo));
+  display:grid;place-items:center; font-weight:700; font-size:22px; color:#2a2e2f;
+  border:1px solid rgba(255,255,255,.25);
+  margin-top:14px;
+}
+#lock .name{font-weight:500;}
+#lock.gone{display:none;}
+
+/* ============================================================
+   DESKTOP
+   ============================================================ */
+#desktop{
+  position:fixed; inset:0 0 var(--bar) 0;
+  overflow:hidden;
+}
+#wall{position:absolute; inset:0; background:var(--desk-2);}
+#wall.w-grid{
+  background:
+    linear-gradient(rgba(255,255,255,.045) 1px, transparent 1px) 0 0/28px 28px,
+    linear-gradient(90deg, rgba(255,255,255,.045) 1px, transparent 1px) 0 0/28px 28px,
+    radial-gradient(120% 100% at 22% 0%, var(--desk-1), var(--desk-2));
+}
+#wall.w-dusk{background:linear-gradient(175deg,#20305e 0%,#4b3350 42%,#a05a4a 78%,#e2a35c 100%);}
+#wall.w-topo{
+  background:
+    repeating-radial-gradient(circle at 30% 120%, transparent 0 26px, rgba(255,255,255,.055) 26px 27px),
+    radial-gradient(110% 100% at 30% 10%, #10474f, #05171d);
+}
+#wall.w-slate{background:radial-gradient(100% 100% at 50% 0%, #33383b, #131617);}
+#wall.w-pulp{
+  background:
+    repeating-linear-gradient(45deg, rgba(0,0,0,.05) 0 6px, transparent 6px 12px),
+    linear-gradient(160deg,#c9633f,#7d2f3c 60%,#31182a);
+}
+
+#icons{
+  position:absolute; inset:14px auto auto 14px;
+  display:flex; flex-direction:column; flex-wrap:wrap;
+  gap:4px; max-height:calc(100% - 28px); align-content:flex-start;
+}
+.dicon{
+  width:82px; padding:9px 4px 7px; border-radius:8px;
+  display:flex; flex-direction:column; align-items:center; gap:6px;
+  color:#f0f4f3; text-align:center; font-size:11.5px; font-weight:500;
+  text-shadow:0 1px 3px rgba(0,0,0,.7);
+  border:1px solid transparent;
+}
+.dicon:hover{background:rgba(255,255,255,.09);}
+.dicon.sel{background:rgba(240,169,44,.2); border-color:rgba(240,169,44,.6);}
+.dicon .glyph{
+  width:40px;height:40px;border-radius:9px;
+  background:linear-gradient(180deg,var(--shell-hi),var(--shell-lo));
+  display:grid;place-items:center;
+  border:1px solid rgba(0,0,0,.25);
+  box-shadow:0 2px 5px rgba(0,0,0,.35), 0 1px 0 rgba(255,255,255,.5) inset;
+  color:#24282a;
+}
+.dicon .glyph svg{width:21px;height:21px;}
+
+/* ============================================================
+   TASKBAR
+   ============================================================ */
+#taskbar{
+  position:fixed; left:0; right:0; bottom:0; height:var(--bar); z-index:5000;
+  display:flex; align-items:center; gap:6px; padding:0 8px;
+  background:linear-gradient(180deg,var(--shell-hi),var(--shell));
+  border-top:1px solid var(--edge);
+  box-shadow:0 -2px 12px rgba(0,0,0,.3);
+}
+#startbtn{
+  display:flex; align-items:center; gap:8px; padding:6px 12px 6px 9px;
+  font-weight:600; letter-spacing:-.01em;
+}
+#startbtn .bird{width:19px;height:19px;color:var(--ink);}
+#tasks{display:flex; gap:5px; flex:1; overflow:hidden; align-items:center;}
+.taskbtn{
+  display:flex; align-items:center; gap:7px; max-width:172px; padding:6px 12px;
+  font-size:12.5px; white-space:nowrap; overflow:hidden;
+}
+.taskbtn svg{width:15px;height:15px;flex:none;}
+.taskbtn span{overflow:hidden; text-overflow:ellipsis;}
+.taskbtn .lamp{width:5px;height:5px;border-radius:50%;background:var(--edge);flex:none;}
+.taskbtn.active .lamp{background:var(--amber); box-shadow:0 0 6px var(--amber);}
+#tray{display:flex; align-items:center; gap:10px; padding-right:4px;}
+.lampset{display:flex; gap:5px; align-items:center;}
+.lampset i{width:7px;height:7px;border-radius:50%;background:var(--go);box-shadow:0 0 5px rgba(79,157,105,.8);}
+.lampset i.a{background:var(--amber);box-shadow:0 0 5px rgba(240,169,44,.8);}
+#trayclock{
+  font-variant-numeric:tabular-nums; text-align:right; line-height:1.15; font-size:12px; padding:3px 8px;
+  border-radius:var(--r-chip);
+}
+#trayclock b{display:block; font-weight:600; font-size:13px;}
+#trayclock small{color:var(--dim); font-size:10.5px;}
+#trayclock:hover{background:rgba(0,0,0,.06);}
+
+/* ============================================================
+   WINDOWS
+   ============================================================ */
+.win{
+  position:absolute; display:flex; flex-direction:column;
+  min-width:260px; min-height:150px;
+  background:var(--shell);
+  border:1px solid var(--edge);
+  border-radius:var(--r-win);
+  box-shadow:var(--shadow-win);
+  overflow:hidden;
+  animation:winIn .18s cubic-bezier(.2,.8,.3,1);
+}
+@keyframes winIn{from{opacity:0; transform:scale(.97) translateY(6px);}}
+.win.min{animation:winMin .16s ease forwards;}
+@keyframes winMin{to{opacity:0; transform:scale(.8) translateY(60px);}}
+.win.closing{animation:winOut .14s ease forwards;}
+@keyframes winOut{to{opacity:0; transform:scale(.96);}}
+.win.hidden{display:none;}
+.win.snapped,.win.maxed{border-radius:0;}
+
+.titlebar{
+  height:34px; flex:none; display:flex; align-items:center; gap:8px;
+  padding:0 8px 0 11px;
+  background:linear-gradient(180deg,var(--shell-hi),var(--shell));
+  border-bottom:1px solid var(--edge);
+  cursor:grab; touch-action:none;
+}
+.win.drag .titlebar{cursor:grabbing;}
+.titlebar .tico{width:15px;height:15px;flex:none;opacity:.75;}
+.titlebar .ttl{flex:1; font-size:12.5px; font-weight:600; letter-spacing:-.005em; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.win:not(.focus) .titlebar{background:var(--shell); }
+.win:not(.focus) .ttl{color:var(--dim);}
+.wbtns{display:flex; gap:5px;}
+.wbtn{
+  width:17px;height:17px;border-radius:50%;
+  border:1px solid rgba(0,0,0,.28);
+  display:grid;place-items:center;
+  box-shadow:0 1px 0 rgba(255,255,255,.4) inset;
+}
+.wbtn svg{width:9px;height:9px;opacity:0;transition:opacity var(--t);color:rgba(0,0,0,.6);}
+.wbtns:hover svg{opacity:1;}
+.wbtn.mn{background:var(--amber);}
+.wbtn.mx{background:var(--go);}
+.wbtn.cl{background:var(--stop);}
+.win:not(.focus) .wbtn{background:var(--shell-lo);}
+
+.wbody{flex:1; overflow:auto; background:var(--paper); position:relative;}
+.rz{position:absolute; z-index:3; touch-action:none;}
+.rz.e{top:0;right:0;width:6px;height:100%;cursor:ew-resize;}
+.rz.s{bottom:0;left:0;height:6px;width:100%;cursor:ns-resize;}
+.rz.se{bottom:0;right:0;width:15px;height:15px;cursor:nwse-resize;}
+.rz.w{top:0;left:0;width:6px;height:100%;cursor:ew-resize;}
+.rz.n{top:0;left:0;height:4px;width:100%;cursor:ns-resize;}
+#snapghost{
+  position:fixed; z-index:4000; pointer-events:none; display:none;
+  border:2px solid var(--amber); background:rgba(240,169,44,.14); border-radius:6px;
+  transition:all 90ms ease;
+}
+
+/* ---------- shared app furniture ---------- */
+.toolbar{
+  display:flex; align-items:center; gap:6px; padding:7px 9px; flex:none;
+  background:linear-gradient(180deg,var(--shell-hi),var(--shell));
+  border-bottom:1px solid var(--edge); flex-wrap:wrap;
+}
+.toolbar .sp{flex:1;}
+.toolbar .div{width:1px;height:20px;background:var(--edge);}
+.tb-in{
+  background:var(--paper); border:1px solid var(--edge); border-radius:var(--r-ctl);
+  padding:5px 9px; box-shadow:0 1px 2px rgba(0,0,0,.14) inset; min-width:0;
+}
+.pad{padding:16px 18px;}
+.stack{display:flex; flex-direction:column; height:100%;}
+h2.appt{font-size:17px; font-weight:600; letter-spacing:-.015em; margin-bottom:3px;}
+p.sub{color:var(--dim); margin-bottom:14px; max-width:62ch;}
+.hint{color:var(--dim); font-size:11.5px;}
+.chip{
+  display:inline-flex; align-items:center; gap:5px;
+  background:var(--paper-2); border:1px solid var(--edge); border-radius:var(--r-chip);
+  padding:2px 7px; font-size:11px; font-family:var(--mono);
+}
+
+/* ---------- terminal ---------- */
+.term{
+  background:var(--field); color:var(--field-ink); font-family:var(--mono);
+  font-size:12.5px; line-height:1.55; padding:12px 14px; height:100%; overflow:auto;
+  user-select:text; cursor:text;
+}
+.term .p{color:var(--amber);}
+.term .er{color:#e88b7d;}
+.term .ok{color:#7fd39b;}
+.term .mut{color:#63736f;}
+.term pre{white-space:pre-wrap; word-break:break-word; font:inherit;}
+.term .line{display:flex; gap:8px;}
+.term input{
+  flex:1; background:none; border:none; outline:none; font:inherit; color:var(--field-ink);
+  caret-color:var(--amber);
+}
+
+/* ---------- files ---------- */
+.fm{display:flex; height:100%;}
+.fm .side{
+  width:158px; flex:none; background:var(--paper-2); border-right:1px solid var(--edge);
+  padding:9px 7px; overflow:auto;
+}
+.fm .side h4{font-size:11px; color:var(--dim); font-weight:600; padding:5px 7px 3px;}
+.fm .side button{
+  display:flex; align-items:center; gap:8px; width:100%; padding:6px 8px;
+  border-radius:var(--r-ctl); font-size:12.5px; text-align:left;
+}
+.fm .side button svg{width:15px;height:15px;opacity:.65;}
+.fm .side button:hover{background:rgba(0,0,0,.06);}
+.fm .side button.on{background:var(--shell); box-shadow:0 0 0 1px var(--edge) inset;}
+.fm .main{flex:1; display:flex; flex-direction:column; min-width:0;}
+.crumbs{display:flex; align-items:center; gap:3px; padding:7px 10px; border-bottom:1px solid var(--edge); font-family:var(--mono); font-size:11.5px; color:var(--dim); background:var(--paper-2); flex-wrap:wrap;}
+.crumbs b{color:var(--ink); font-weight:500;}
+.grid{
+  display:grid; grid-template-columns:repeat(auto-fill,minmax(94px,1fr));
+  gap:4px; padding:12px; overflow:auto; align-content:start; flex:1;
+}
+.fitem{
+  padding:11px 5px 8px; border-radius:8px; display:flex; flex-direction:column;
+  align-items:center; gap:7px; text-align:center; font-size:11.5px; border:1px solid transparent;
+  word-break:break-word;
+}
+.fitem svg{width:29px;height:29px; color:var(--dim);}
+.fitem.dir svg{color:var(--amber);}
+.fitem:hover{background:var(--paper-2);}
+.fitem.sel{background:rgba(240,169,44,.16); border-color:var(--amber);}
+.empty{padding:38px 18px; color:var(--dim); text-align:center; grid-column:1/-1;}
+
+/* ---------- text editor ---------- */
+.editor{
+  width:100%; height:100%; border:none; outline:none; resize:none;
+  padding:16px 20px; font-family:var(--mono); font-size:13px; line-height:1.7;
+  background:var(--paper); color:var(--ink); user-select:text;
+}
+.statusbar{
+  flex:none; display:flex; gap:14px; padding:5px 11px; font-size:11px; color:var(--dim);
+  border-top:1px solid var(--edge); background:var(--paper-2); font-family:var(--mono);
+}
+
+/* ---------- calculator ---------- */
+.calc{display:flex; flex-direction:column; height:100%; background:var(--shell); padding:10px; gap:9px;}
+.calc .readout{
+  background:#101b16; border-radius:var(--r-ctl); padding:12px 14px; text-align:right;
+  font-family:var(--mono); color:#a8e6bd; box-shadow:0 2px 6px rgba(0,0,0,.35) inset;
+  border:1px solid #060b09;
+}
+.calc .readout .sm{font-size:11px; color:#4f7a63; min-height:16px; overflow:hidden;}
+.calc .readout .big{font-size:29px; font-weight:500; overflow:hidden; text-overflow:ellipsis;}
+.calc .keys{display:grid; grid-template-columns:repeat(4,1fr); gap:7px; flex:1;}
+.calc .keys button{font-size:16px; font-weight:500; border-radius:var(--r-ctl); min-height:38px;}
+.calc .keys .op{background:linear-gradient(180deg,#f6cd85,var(--amber)); border-color:#c9891f;}
+.calc .keys .eq{background:linear-gradient(180deg,#7cc394,var(--go)); border-color:#3d7d53; color:#08160e;}
+
+/* ---------- paint ---------- */
+.paintwrap{background:var(--paper-2); height:100%; display:grid; place-items:center; overflow:auto; padding:12px;}
+.paintwrap canvas{background:#fff; box-shadow:0 4px 16px rgba(0,0,0,.22); border:1px solid var(--edge); touch-action:none; cursor:crosshair;}
+.swatches{display:flex; gap:4px;}
+.sw{width:20px;height:20px;border-radius:var(--r-chip); border:1px solid rgba(0,0,0,.3); box-shadow:0 1px 2px rgba(0,0,0,.2);}
+.sw.on{outline:2px solid var(--amber); outline-offset:1px;}
+
+/* ---------- browser ---------- */
+.bwrap{display:flex; flex-direction:column; height:100%;}
+.page{padding:26px 30px; overflow:auto; flex:1; user-select:text; background:var(--paper);}
+.page h1{font-size:26px; letter-spacing:-.025em; margin-bottom:6px; font-weight:700;}
+.page h3{font-size:14px; margin:18px 0 6px; font-weight:600;}
+.page p{max-width:66ch; margin-bottom:10px; color:var(--ink);}
+.page a{color:#0d6b7a; cursor:pointer; text-decoration:underline; text-underline-offset:2px;}
+html[data-theme="dark"] .page a{color:#6fd0dd;}
+.page ul{margin:0 0 12px 18px;}
+.page li{margin-bottom:4px;}
+.page .card{border:1px solid var(--edge); border-radius:8px; padding:14px 16px; background:var(--paper-2); margin-bottom:10px; max-width:66ch;}
+.page code{font-family:var(--mono); font-size:12px; background:var(--paper-2); padding:1px 5px; border-radius:3px; border:1px solid var(--edge);}
+
+/* ---------- settings ---------- */
+.set{display:flex; height:100%;}
+.set .nav{width:132px; flex:none; background:var(--paper-2); border-right:1px solid var(--edge); padding:9px 7px;}
+.set .nav button{display:block; width:100%; text-align:left; padding:7px 9px; border-radius:var(--r-ctl); font-size:12.5px;}
+.set .nav button.on{background:var(--shell); box-shadow:0 0 0 1px var(--edge) inset; font-weight:600;}
+.set .body{flex:1; overflow:auto; padding:18px 20px;}
+.row{display:flex; align-items:center; justify-content:space-between; gap:14px; padding:11px 0; border-bottom:1px solid var(--edge);}
+.row:last-child{border-bottom:none;}
+.row .lbl{font-weight:500;}
+.row .desc{color:var(--dim); font-size:11.5px;}
+.walls{display:flex; gap:8px; flex-wrap:wrap; margin-top:4px;}
+.wallsw{width:74px;height:46px;border-radius:6px;border:1px solid var(--edge); box-shadow:0 2px 5px rgba(0,0,0,.2);}
+.wallsw.on{outline:2px solid var(--amber); outline-offset:2px;}
+.toggle{width:42px;height:23px;border-radius:12px;background:var(--shell-lo);border:1px solid var(--edge);position:relative;transition:background var(--t); flex:none;}
+.toggle::after{content:"";position:absolute;top:2px;left:2px;width:17px;height:17px;border-radius:50%;background:var(--paper);box-shadow:0 1px 3px rgba(0,0,0,.35);transition:transform var(--t);}
+.toggle.on{background:var(--go);}
+.toggle.on::after{transform:translateX(19px);}
+
+/* ---------- snake ---------- */
+.game{display:flex; flex-direction:column; align-items:center; gap:11px; padding:14px; background:var(--paper-2); height:100%; overflow:auto;}
+.game canvas{background:#0f1a16; border-radius:8px; border:1px solid var(--edge); box-shadow:0 6px 18px rgba(0,0,0,.3); max-width:100%; touch-action:none;}
+.scorebar{display:flex; gap:20px; font-family:var(--mono); font-size:12px;}
+.scorebar b{font-size:16px; display:block;}
+.dpad{display:grid; grid-template-columns:repeat(3,44px); grid-template-rows:repeat(2,40px); gap:5px;}
+.dpad button{border-radius:var(--r-ctl); display:grid; place-items:center;}
+
+/* ---------- studio (music) ---------- */
+.seq{padding:12px; overflow:auto; height:100%; background:var(--paper-2);}
+.track{display:flex; align-items:center; gap:7px; margin-bottom:6px;}
+.track .nm{width:52px; font-size:11px; font-family:var(--mono); color:var(--dim); flex:none;}
+.steps{display:flex; gap:3px;}
+.step{
+  width:22px;height:26px;border-radius:var(--r-chip); flex:none;
+  background:var(--shell); border:1px solid var(--edge);
+  box-shadow:0 1px 0 rgba(255,255,255,.4) inset;
+}
+.step.beat{background:var(--shell-lo);}
+.step.on{background:linear-gradient(180deg,#f6cd85,var(--amber)); border-color:#c9891f;}
+.step.cur{outline:2px solid var(--go); outline-offset:1px;}
+
+/* ============================================================
+   START MENU · MENUS · TOASTS
+   ============================================================ */
+#start{
+  position:fixed; bottom:calc(var(--bar) + 7px); left:8px; z-index:6000;
+  width:min(340px, calc(100vw - 16px));
+  background:var(--shell); border:1px solid var(--edge); border-radius:12px;
+  box-shadow:var(--shadow-win); overflow:hidden; display:none;
+}
+#start.open{display:block; animation:menuIn .14s cubic-bezier(.2,.8,.3,1);}
+@keyframes menuIn{from{opacity:0; transform:translateY(8px) scale(.98);}}
+#start .head{padding:11px 13px 9px; border-bottom:1px solid var(--edge); background:linear-gradient(180deg,var(--shell-hi),var(--shell));}
+#start .head input{width:100%; }
+#start .list{max-height:min(52vh,380px); overflow:auto; padding:7px;}
+#start .list button{
+  display:flex; align-items:center; gap:10px; width:100%; padding:8px 9px;
+  border-radius:var(--r-ctl); text-align:left;
+}
+#start .list button:hover, #start .list button.hl{background:var(--shell-hi); box-shadow:0 0 0 1px var(--edge) inset;}
+#start .list .gl{width:28px;height:28px;border-radius:7px;background:var(--paper); display:grid;place-items:center; border:1px solid var(--edge); flex:none;}
+#start .list .gl svg{width:15px;height:15px;}
+#start .list .nm{font-weight:500; font-size:12.5px;}
+#start .list .ds{font-size:11px; color:var(--dim);}
+#start .foot{display:flex; gap:6px; padding:8px 9px; border-top:1px solid var(--edge); background:var(--paper-2);}
+#start .foot .who{flex:1; display:flex; align-items:center; gap:8px; font-size:12px; padding-left:3px;}
+#start .foot .av{width:24px;height:24px;border-radius:50%;background:linear-gradient(180deg,var(--shell-hi),var(--shell-lo));display:grid;place-items:center;font-size:11px;font-weight:700;border:1px solid var(--edge);}
+
+#ctx{
+  position:fixed; z-index:7000; display:none; min-width:186px; padding:5px;
+  background:var(--shell); border:1px solid var(--edge); border-radius:9px; box-shadow:var(--shadow-win);
+}
+#ctx.open{display:block; animation:menuIn .1s ease;}
+#ctx button{display:flex; width:100%; justify-content:space-between; gap:16px; padding:6px 9px; border-radius:var(--r-ctl); font-size:12.5px; text-align:left;}
+#ctx button:hover{background:var(--shell-hi);}
+#ctx button kbd{color:var(--dim); font-family:var(--mono); font-size:10.5px;}
+#ctx hr{border:none; border-top:1px solid var(--edge); margin:4px 2px;}
+
+#toasts{position:fixed; right:12px; bottom:calc(var(--bar) + 12px); z-index:7500; display:flex; flex-direction:column; gap:8px; align-items:flex-end;}
+.toast{
+  background:var(--shell); border:1px solid var(--edge); border-radius:9px;
+  box-shadow:var(--shadow-win); padding:10px 13px; max-width:290px;
+  display:flex; gap:10px; align-items:flex-start;
+  animation:toastIn .2s cubic-bezier(.2,.8,.3,1);
+}
+.toast.out{animation:toastOut .25s ease forwards;}
+@keyframes toastIn{from{opacity:0; transform:translateX(20px);}}
+@keyframes toastOut{to{opacity:0; transform:translateX(20px);}}
+.toast .lamp{width:8px;height:8px;border-radius:50%;background:var(--amber);margin-top:5px;flex:none;box-shadow:0 0 6px var(--amber);}
+.toast .t{font-weight:600; font-size:12.5px;}
+.toast .m{font-size:12px; color:var(--dim);}
+
+/* ---------- modal ---------- */
+#modal{position:fixed; inset:0; z-index:7600; display:none; place-items:center; background:rgba(0,0,0,.4);}
+#modal.open{display:grid;}
+#modal .box{background:var(--shell); border:1px solid var(--edge); border-radius:11px; box-shadow:var(--shadow-win); width:min(380px,calc(100vw - 32px)); padding:16px 17px;}
+#modal h3{font-size:14.5px; margin-bottom:5px;}
+#modal p{font-size:12.5px; color:var(--dim); margin-bottom:12px;}
+#modal input{width:100%; margin-bottom:13px;}
+#modal .acts{display:flex; gap:7px; justify-content:flex-end;}
+
+@media (max-width:640px){
+  :root{--bar:52px;}
+  .fm .side, .set .nav{display:none;}
+  .dicon{width:74px;}
+  #tasks .taskbtn span{display:none;}
+}
+@media (prefers-reduced-motion:reduce){
+  *{animation-duration:.01ms !important; transition-duration:.01ms !important;}
+}
+</style>
+</head>
+<body>
+
+<div id="boot" aria-hidden="true">
+  <div class="mark">KESTREL<small>bios 1.04 · falcon board rev c</small></div>
+  <div id="bootlog"></div>
+</div>
+
+<div id="lock" class="gone">
+  <div class="clock" id="lockclock">00:00</div>
+  <div class="date" id="lockdate"></div>
+  <div class="avatar" id="lockav">O</div>
+  <div class="name" id="lockname">operator</div>
+  <button class="ctl" id="unlock" style="margin-top:6px;padding:8px 22px;font-weight:600;">Sign in</button>
+</div>
+
+<div id="desktop">
+  <div id="wall" class="w-grid"></div>
+  <div id="icons"></div>
+</div>
+
+<div id="snapghost"></div>
+
+<div id="taskbar">
+  <button class="ctl" id="startbtn" title="Menu  ·  Ctrl+Space">
+    <svg class="bird" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20c4-1 6-3 7-6"/><path d="M10 14c5-1 8-4 9-9-3 1-5 1-7 0-2 3-3 6-2 9z"/><path d="M12 8l4-2"/></svg>
+    Kestrel
+  </button>
+  <div id="tasks"></div>
+  <div id="tray">
+    <div class="lampset" title="System nominal"><i></i><i class="a"></i><i></i></div>
+    <button id="trayclock"><b>00:00</b><small>—</small></button>
+  </div>
+</div>
+
+<div id="start" role="menu" aria-label="Application menu">
+  <div class="head"><input class="tb-in" id="startsearch" placeholder="Search apps and files" autocomplete="off"></div>
+  <div class="list" id="startlist"></div>
+  <div class="foot">
+    <div class="who"><span class="av" id="startav">O</span><span id="startname">operator</span></div>
+    <button class="ctl" id="btnsettings" title="Settings">Settings</button>
+    <button class="ctl" id="btnlock" title="Lock screen">Lock</button>
+  </div>
+</div>
+
+<div id="ctx" role="menu"></div>
+<div id="toasts" aria-live="polite"></div>
+
+<div id="modal">
+  <div class="box">
+    <h3 id="mtitle">Title</h3>
+    <p id="mmsg">Message</p>
+    <input class="tb-in" id="minput">
+    <div class="acts">
+      <button class="ctl" id="mcancel">Cancel</button>
+      <button class="ctl" id="mok" style="font-weight:600;">OK</button>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+/* ============================================================
+   0 · tiny helpers
+   ============================================================ */
+const $  = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const el = (tag, cls, html) => { const n = document.createElement(tag); if (cls) n.className = cls; if (html != null) n.innerHTML = html; return n; };
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const pad2 = n => String(n).padStart(2, "0");
+
+const ICONS = {
+  app:      '<rect x="4" y="4" width="16" height="16" rx="3"/>',
+  terminal: '<rect x="2.5" y="4" width="19" height="16" rx="2.5"/><path d="M7 10l3 2-3 2"/><path d="M13 14h4"/>',
+  files:    '<path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+  folder:   '<path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+  file:     '<path d="M6 3h8l4 4v14a0 0 0 0 1 0 0H6a0 0 0 0 1 0 0z"/><path d="M14 3v4h4"/>',
+  text:     '<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/><path d="M9 12h6M9 16h4"/>',
+  image:    '<rect x="3" y="4.5" width="18" height="15" rx="2"/><circle cx="8.5" cy="10" r="1.6"/><path d="M4 17l5-4.5 4.5 4 3-2.5L21 18"/>',
+  edit:     '<path d="M4 20h4l10.5-10.5a2.1 2.1 0 0 0-3-3L5 17z"/><path d="M14 6l4 4"/>',
+  calc:     '<rect x="4" y="2.5" width="16" height="19" rx="2.5"/><rect x="7" y="6" width="10" height="4" rx="1"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01"/>',
+  paint:    '<path d="M12 3a9 9 0 1 0 0 18c1.2 0 1.8-.9 1.8-1.8 0-1.6 1-2.2 2.4-2.2H18a3.6 3.6 0 0 0 3.6-3.6C21.6 7.2 17.3 3 12 3z"/><circle cx="7.7" cy="11" r="1.1"/><circle cx="11" cy="7.4" r="1.1"/><circle cx="15.6" cy="9.4" r="1.1"/>',
+  globe:    '<circle cx="12" cy="12" r="9"/><path d="M3.2 9h17.6M3.2 15h17.6"/><path d="M12 3c2.6 3 2.6 15 0 18M12 3c-2.6 3-2.6 15 0 18"/>',
+  gear:     '<circle cx="12" cy="12" r="3.2"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.2 5.2l2.1 2.1M16.7 16.7l2.1 2.1M18.8 5.2l-2.1 2.1M7.3 16.7l-2.1 2.1"/>',
+  game:     '<rect x="2.5" y="7" width="19" height="10.5" rx="4"/><path d="M7 10.5v3M5.5 12h3"/><circle cx="16" cy="11.4" r="1"/><circle cx="18.2" cy="13.6" r="1"/>',
+  music:    '<path d="M9 18V6l11-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/>',
+  info:     '<circle cx="12" cy="12" r="9"/><path d="M12 11v6"/><path d="M12 7.6h.01"/>',
+  home:     '<path d="M3.5 10.5L12 3.5l8.5 7"/><path d="M5.5 9.5V20h13V9.5"/>',
+  disk:     '<ellipse cx="12" cy="6.5" rx="8" ry="3"/><path d="M4 6.5v11c0 1.7 3.6 3 8 3s8-1.3 8-3v-11"/>',
+  trash:    '<path d="M4 7h16"/><path d="M9 7V4.5h6V7"/><path d="M6 7l1 13h10l1-13"/>',
+  plus:     '<path d="M12 5v14M5 12h14"/>',
+  x:        '<path d="M6 6l12 12M18 6L6 18"/>',
+  minus:    '<path d="M6 12h12"/>',
+  square:   '<rect x="5" y="5" width="14" height="14" rx="1.5"/>',
+  back:     '<path d="M15 5l-7 7 7 7"/>',
+  fwd:      '<path d="M9 5l7 7-7 7"/>',
+  up:       '<path d="M12 19V5M5 12l7-7 7 7"/>',
+  down:     '<path d="M12 5v14M5 12l7 7 7-7"/>',
+  left:     '<path d="M19 12H5M12 5l-7 7 7 7"/>',
+  right:    '<path d="M5 12h14M12 5l7 7-7 7"/>',
+  play:     '<path d="M7 4.5l12 7.5-12 7.5z"/>',
+  stop:     '<rect x="6" y="6" width="12" height="12" rx="1.5"/>',
+  reload:   '<path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 4v5h-5"/>'
+};
+const ico = (n, cls = "") =>
+  `<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${ICONS[n] || ICONS.app}</svg>`;
+
+/* ============================================================
+   1 · config + persistence
+   ============================================================ */
+const DEFAULT_CFG = {
+  user: "operator",
+  theme: "light",
+  wall: "w-grid",
+  accent: "#f0a92c",
+  motion: true,
+  snakeHigh: 0,
+  visits: 0
+};
+let cfg = { ...DEFAULT_CFG };
+let FS = {};
+
+const KEY = "kestrel:v1";
+let saveTimer = null;
+function save() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(async () => {
+    try { await window.storage.set(KEY, JSON.stringify({ cfg, FS })); } catch (e) { /* session only */ }
+  }, 400);
+}
+async function loadState() {
+  try {
+    const r = await window.storage.get(KEY);
+    if (r && r.value) {
+      const d = JSON.parse(r.value);
+      if (d.cfg) cfg = { ...DEFAULT_CFG, ...d.cfg };
+      if (d.FS && d.FS["/"]) FS = d.FS;
+      return true;
+    }
+  } catch (e) { /* first boot or storage unavailable */ }
+  return false;
+}
+
+/* ============================================================
+   2 · virtual filesystem  (flat map, path keys)
+   ============================================================ */
+const HOME = "/home/operator";
+const norm = p => {
+  const parts = [];
+  for (const seg of String(p).split("/")) {
+    if (!seg || seg === ".") continue;
+    if (seg === "..") parts.pop(); else parts.push(seg);
+  }
+  return "/" + parts.join("");
+};
+function resolve(p, cwd) {
+  if (!p) return cwd;
+  if (p === "~") return HOME;
+  if (p.startsWith("~/")) p = HOME + p.slice(1);
+  const parts = [];
+  const base = p.startsWith("/") ? [] : cwd.split("/").filter(Boolean);
+  for (const seg of [...base, ...p.split("/")]) {
+    if (!seg || seg === ".") continue;
+    if (seg === "..") parts.pop(); else parts.push(seg);
+  }
+  return "/" + parts.join("/");
+}
+const dirname  = p => p === "/" ? "/" : (p.slice(0, p.lastIndexOf("/")) || "/");
+const basename = p => p === "/" ? "/" : p.slice(p.lastIndexOf("/") + 1);
+const exists   = p => !!FS[p];
+const isDir    = p => FS[p] && FS[p].t === "d";
+const childrenOf = p => Object.keys(FS)
+  .filter(k => k !== "/" && dirname(k) === p)
+  .sort((a, b) => (isDir(b) - isDir(a)) || basename(a).localeCompare(basename(b)));
+
+function mkdir(p) {
+  p = norm(p);
+  const chain = [];
+  let cur = p;
+  while (cur !== "/" && !exists(cur)) { chain.unshift(cur); cur = dirname(cur); }
+  chain.forEach(c => FS[c] = { t: "d", m: Date.now() });
+  save();
+  return p;
+}
+function writeFile(p, content, kind = "txt") {
+  p = norm(p);
+  mkdir(dirname(p));
+  FS[p] = { t: "f", k: kind, c: content, m: Date.now() };
+  save();
+  return p;
+}
+const readFile = p => (FS[p] && FS[p].t === "f") ? FS[p].c : null;
+function rm(p) {
+  if (p === "/" || p === HOME) return false;
+  Object.keys(FS).forEach(k => { if (k === p || k.startsWith(p + "/")) delete FS[k]; });
+  save();
+  return true;
+}
+function moveTo(from, to) {
+  if (!exists(from)) return false;
+  const keys = Object.keys(FS).filter(k => k === from || k.startsWith(from + "/"));
+  keys.forEach(k => { FS[to + k.slice(from.length)] = FS[k]; delete FS[k]; });
+  save();
+  return true;
+}
+function uniqueName(dir, name) {
+  let n = name, i = 2;
+  const dot = name.lastIndexOf(".");
+  const stem = dot > 0 ? name.slice(0, dot) : name;
+  const ext  = dot > 0 ? name.slice(dot) : "";
+  while (exists(dir === "/" ? "/" + n : dir + "/" + n)) n = `${stem} ${i++}${ext}`;
+  return n;
+}
+const fileKind = p => {
+  const f = FS[p];
+  if (!f) return "file";
+  if (f.t === "d") return "folder";
+  if (f.k === "img") return "image";
+  return "text";
+};
+
+function seedFS() {
+  FS = { "/": { t: "d", m: Date.now() } };
+  ["/home", HOME, HOME + "/Documents", HOME + "/Pictures", HOME + "/Projects", "/system", "/system/logs"].forEach(mkdir);
+  writeFile(HOME + "/Documents/readme.txt",
+`Kestrel OS 1.0
+==============
+
+Everything here is real, in the sense that it actually runs. There is
+no server: the filesystem lives in memory and is written back to
+browser storage whenever you change something.
+
+Things worth trying
+  · Terminal   type "help", then "neofetch"
+  · Files      double click anything, or right click for a menu
+  · Studio     make a beat, then press play
+  · Settings   swap the wallpaper and flip to dark
+
+Drag a window to the top edge to maximise it, or to the left or
+right edge to snap it to half the screen.`);
+  writeFile(HOME + "/Documents/notes.txt", "Scratch pad.\n\nShopping:\n- solder\n- 2x 470 ohm resistors\n- coffee\n");
+  writeFile(HOME + "/Projects/todo.txt", "[ ] finish the gearbox\n[ ] rewrite the parser\n[x] boot the machine\n");
+  writeFile("/system/logs/boot.log", "kernel: cold start ok\nfs: mounted / as memfs\nwm: compositor online\n");
+  save();
+}
+
+/* ============================================================
+   3 · toasts + modal
+   ============================================================ */
+function toast(title, msg) {
+  const t = el("div", "toast", `<span class="lamp"></span><div><div class="t">${esc(title)}</div>${msg ? `<div class="m">${esc(msg)}</div>` : ""}</div>`);
+  $("#toasts").appendChild(t);
+  setTimeout(() => { t.classList.add("out"); setTimeout(() => t.remove(), 260); }, 3200);
+}
+
+function ask({ title, msg = "", value = "", ok = "OK", input = true }) {
+  return new Promise(res => {
+    const m = $("#modal");
+    $("#mtitle").textContent = title;
+    $("#mmsg").textContent = msg;
+    $("#mmsg").style.display = msg ? "" : "none";
+    const inp = $("#minput");
+    inp.style.display = input ? "" : "none";
+    inp.value = value;
+    $("#mok").textContent = ok;
+    m.classList.add("open");
+    setTimeout(() => input ? inp.focus() : $("#mok").focus(), 30);
+    const done = v => { m.classList.remove("open"); cleanup(); res(v); };
+    const onOk = () => done(input ? inp.value : true);
+    const onNo = () => done(null);
+    const onKey = e => { if (e.key === "Enter") onOk(); if (e.key === "Escape") onNo(); };
+    function cleanup() {
+      $("#mok").removeEventListener("click", onOk);
+      $("#mcancel").removeEventListener("click", onNo);
+      m.removeEventListener("keydown", onKey);
+    }
+    $("#mok").addEventListener("click", onOk);
+    $("#mcancel").addEventListener("click", onNo);
+    m.addEventListener("keydown", onKey);
+  });
+}
+
+/* ============================================================
+   4 · window manager
+   ============================================================ */
+const APPS = {};
+const wins = new Map();
+let zTop = 100, winSeq = 0, focused = null;
+const desk = () => $("#desktop").getBoundingClientRect();
+const isSmall = () => window.innerWidth < 700;
+
+function openWindow(opt) {
+  const id = "w" + (++winSeq);
+  const d = desk();
+  let w = Math.min(opt.w || 560, d.width - 20);
+  let h = Math.min(opt.h || 380, d.height - 20);
+  const off = (wins.size % 6) * 26;
+  let x = clamp((d.width - w) / 2 + off - 60, 8, Math.max(8, d.width - w - 8));
+  let y = clamp(46 + off, 8, Math.max(8, d.height - h - 8));
+
+  const n = el("div", "win");
+  n.id = id;
+  Object.assign(n.style, { left: x + "px", top: y + "px", width: w + "px", height: h + "px" });
+  n.innerHTML = `
+    <div class="titlebar">
+      ${ico(opt.icon || "app", "tico")}
+      <span class="ttl">${esc(opt.title)}</span>
+      <div class="wbtns">
+        <button class="wbtn mn" title="Minimise" data-a="min">${ico("minus")}</button>
+        <button class="wbtn mx" title="Maximise" data-a="max">${ico("square")}</button>
+        <button class="wbtn cl" title="Close" data-a="close">${ico("x")}</button>
+      </div>
+    </div>
+    <div class="wbody"></div>
+    <div class="rz n"></div><div class="rz e"></div><div class="rz s"></div>
+    <div class="rz w"></div><div class="rz se"></div>`;
+  $("#desktop").appendChild(n);
+
+  const rec = { id, node: n, body: $(".wbody", n), app: opt.app, title: opt.title, icon: opt.icon || "app", min: false, max: false, prev: null, cleanup: null };
+  wins.set(id, rec);
+
+  n.addEventListener("pointerdown", () => focus(id), true);
+  $$(".wbtn", n).forEach(b => b.addEventListener("click", e => {
+    e.stopPropagation();
+    const a = b.dataset.a;
+    if (a === "min") minimise(id);
+    if (a === "max") toggleMax(id);
+    if (a === "close") closeWindow(id);
+  }));
+  dragify(rec);
+  resizify(rec);
+  focus(id);
+  if (isSmall()) toggleMax(id, true);
+  syncTasks();
+  return rec;
+}
+
+function focus(id) {
+  const r = wins.get(id); if (!r) return;
+  if (r.min) { r.min = false; r.node.classList.remove("hidden", "min"); }
+  focused = id;
+  wins.forEach(w => w.node.classList.toggle("focus", w.id === id));
+  r.node.style.zIndex = ++zTop;
+  syncTasks();
+}
+function minimise(id) {
+  const r = wins.get(id); if (!r) return;
+  r.min = true;
+  r.node.classList.add("min");
+  setTimeout(() => r.node.classList.add("hidden"), 150);
+  if (focused === id) focused = null;
+  syncTasks();
+}
+function toggleMax(id, force) {
+  const r = wins.get(id); if (!r) return;
+  const d = desk();
+  if (!r.max || force === true) {
+    r.prev = { l: r.node.style.left, t: r.node.style.top, w: r.node.style.width, h: r.node.style.height };
+    Object.assign(r.node.style, { left: "0px", top: "0px", width: d.width + "px", height: d.height + "px" });
+    r.node.classList.add("maxed"); r.max = true;
+  } else {
+    const p = r.prev || { l: "60px", t: "60px", w: "560px", h: "380px" };
+    Object.assign(r.node.style, { left: p.l, top: p.t, width: p.w, height: p.h });
+    r.node.classList.remove("maxed", "snapped"); r.max = false;
+  }
+}
+function closeWindow(id) {
+  const r = wins.get(id); if (!r) return;
+  try { if (typeof r.cleanup === "function") r.cleanup(); } catch (e) {}
+  r.node.classList.add("closing");
+  setTimeout(() => r.node.remove(), 130);
+  wins.delete(id);
+  if (focused === id) focused = null;
+  syncTasks();
+}
+
+/* ---- drag with edge snapping ---- */
+function dragify(r) {
+  const bar = $(".titlebar", r.node);
+  let sx, sy, ox, oy, dragging = false, zone = null;
+  bar.addEventListener("pointerdown", e => {
+    if (e.target.closest(".wbtn")) return;
+    dragging = true; zone = null;
+    const b = r.node.getBoundingClientRect();
+    sx = e.clientX; sy = e.clientY; ox = b.left; oy = b.top;
+    if (r.max) {                       // pull a maximised window loose
+      const ratio = (e.clientX - b.left) / b.width;
+      toggleMax(r.id);
+      const nb = r.node.getBoundingClientRect();
+      ox = e.clientX - nb.width * ratio; oy = e.clientY - 17;
+      r.node.style.left = ox + "px"; r.node.style.top = oy + "px";
+    }
+    r.node.classList.add("drag");
+    bar.setPointerCapture(e.pointerId);
+  });
+  bar.addEventListener("pointermove", e => {
+    if (!dragging) return;
+    const d = desk();
+    const b = r.node.getBoundingClientRect();
+    let nx = clamp(ox + e.clientX - sx, -b.width + 90, d.width - 90);
+    let ny = clamp(oy + e.clientY - sy, 0, d.height - 34);
+    r.node.style.left = nx + "px"; r.node.style.top = ny + "px";
+    const g = $("#snapghost"), M = 22;
+    zone = e.clientY < M ? "top" : e.clientX < M ? "left" : e.clientX > d.width - M ? "right" : null;
+    if (zone && !isSmall()) {
+      const boxes = {
+        top:   { left: 0, top: 0, width: d.width, height: d.height },
+        left:  { left: 0, top: 0, width: d.width / 2, height: d.height },
+        right: { left: d.width / 2, top: 0, width: d.width / 2, height: d.height }
+      }[zone];
+      g.style.display = "block";
+      Object.assign(g.style, { left: boxes.left + "px", top: boxes.top + "px", width: boxes.width + "px", height: boxes.height + "px" });
+    } else g.style.display = "none";
+  });
+  const end = e => {
+    if (!dragging) return;
+    dragging = false;
+    r.node.classList.remove("drag");
+    $("#snapghost").style.display = "none";
+    if (zone && !isSmall()) {
+      const d = desk();
+      r.prev = { l: r.node.style.left, t: r.node.style.top, w: r.node.style.width, h: r.node.style.height };
+      if (zone === "top") { toggleMax(r.id, true); }
+      else {
+        Object.assign(r.node.style, {
+          left: (zone === "left" ? 0 : d.width / 2) + "px", top: "0px",
+          width: (d.width / 2) + "px", height: d.height + "px"
+        });
+        r.node.classList.add("snapped"); r.max = false;
+      }
+    }
+  };
+  bar.addEventListener("pointerup", end);
+  bar.addEventListener("pointercancel", end);
+}
+
+/* ---- resize ---- */
+function resizify(r) {
+  $$(".rz", r.node).forEach(h => {
+    const dirs = h.className.replace("rz", "").trim();
+    let sx, sy, b0, active = false;
+    h.addEventListener("pointerdown", e => {
+      e.stopPropagation();
+      active = true; sx = e.clientX; sy = e.clientY;
+      b0 = r.node.getBoundingClientRect();
+      h.setPointerCapture(e.pointerId);
+    });
+    h.addEventListener("pointermove", e => {
+      if (!active) return;
+      const dx = e.clientX - sx, dy = e.clientY - sy, d = desk();
+      let { left, top, width, height } = b0;
+      if (dirs.includes("e")) width = clamp(b0.width + dx, 260, d.width - left);
+      if (dirs.includes("s")) height = clamp(b0.height + dy, 150, d.height - top);
+      if (dirs.includes("w")) { const nw = clamp(b0.width - dx, 260, b0.right); left = b0.right - nw; width = nw; }
+      if (dirs.includes("n")) { const nh = clamp(b0.height - dy, 150, b0.bottom); top = b0.bottom - nh; height = nh; }
+      Object.assign(r.node.style, { left: left + "px", top: Math.max(0, top) + "px", width: width + "px", height: height + "px" });
+      r.node.classList.remove("maxed", "snapped"); r.max = false;
+    });
+    const stop = () => active = false;
+    h.addEventListener("pointerup", stop);
+    h.addEventListener("pointercancel", stop);
+  });
+}
+
+/* ---- taskbar sync ---- */
+function syncTasks() {
+  const t = $("#tasks");
+  t.innerHTML = "";
+  wins.forEach(w => {
+    const b = el("button", "ctl taskbtn" + (focused === w.id ? " active" : ""),
+      `<span class="lamp"></span>${ico(w.icon)}<span>${esc(w.title)}</span>`);
+    b.onclick = () => (focused === w.id && !w.min) ? minimise(w.id) : focus(w.id);
+    t.appendChild(b);
+  });
+}
+
+/* ---- launcher ---- */
+function launch(appId, arg) {
+  const app = APPS[appId];
+  if (!app) return toast("App not found", appId);
+  if (app.single) {
+    for (const [id, r] of wins) if (r.app === appId) { focus(id); if (app.reopen) app.reopen(r, arg); return r; }
+  }
+  const r = openWindow({ app: appId, title: app.name, icon: app.icon, w: app.w, h: app.h });
+  try { r.cleanup = app.mount(r.body, r, arg) || null; }
+  catch (err) { r.body.innerHTML = `<div class="pad"><h2 class="appt">${esc(app.name)} stopped</h2><p class="sub">${esc(err.message)}</p></div>`; }
+  return r;
+}
+function setWinTitle(r, t) { r.title = t; $(".ttl", r.node).textContent = t; syncTasks(); }
+
+function openPath(p) {
+  if (!exists(p)) return toast("Not found", p);
+  if (isDir(p)) return launch("files", p);
+  return launch(fileKind(p) === "image" ? "viewer" : "editor", p);
+}
+
+/* ============================================================
+   5 · Terminal
+   ============================================================ */
+APPS.terminal = {
+  name: "Terminal", icon: "terminal", desc: "Talk to the machine", w: 640, h: 400,
+  mount(body) {
+    body.innerHTML = `<div class="term"><div class="out"></div><div class="line"><span class="p"></span><input spellcheck="false" autocapitalize="off" autocomplete="off"></div></div>`;
+    const term = $(".term", body), out = $(".out", body), inp = $("input", body), ps = $(".p", body);
+    let cwd = HOME;
+    const hist = []; let hi = -1;
+    const short = () => cwd === HOME ? "~" : cwd.startsWith(HOME + "/") ? "~" + cwd.slice(HOME.length) : cwd;
+    const prompt = () => `${cfg.user}@kestrel ${short()} $`;
+    const setPs = () => ps.textContent = prompt();
+    const print = (html, cls = "") => { out.appendChild(el("pre", cls, html)); term.scrollTop = term.scrollHeight; };
+    term.addEventListener("pointerup", e => { if (!String(getSelection()).length && e.target.tagName !== "A") inp.focus(); });
+
+    const CMDS = {
+      help: () => print(
+`<span class="ok">files</span>     ls  cd  pwd  cat  tree  mkdir  touch  rm  mv  cp
+<span class="ok">writing</span>   echo TEXT &gt; file    echo TEXT &gt;&gt; file
+<span class="ok">system</span>    open PATH  run APP  apps  theme  wall  date  whoami  uname
+<span class="ok">other</span>     neofetch  say TEXT  history  clear  exit`),
+      ls: a => {
+        const p = resolve(a[0] || ".", cwd);
+        if (!exists(p)) return print(`ls: ${esc(p)}: no such file or directory`, "er");
+        if (!isDir(p)) return print(basename(p));
+        const kids = childrenOf(p);
+        if (!kids.length) return print("<span class='mut'>(empty)</span>");
+        print(kids.map(k => isDir(k) ? `<span class="p">${esc(basename(k))}/</span>` : esc(basename(k))).join("   "));
+      },
+      cd: a => {
+        const p = resolve(a[0] || "~", cwd);
+        if (!exists(p)) return print(`cd: ${esc(p)}: no such directory`, "er");
+        if (!isDir(p)) return print(`cd: ${esc(basename(p))}: not a directory`, "er");
+        cwd = p; setPs();
+      },
+      pwd: () => print(cwd),
+      cat: a => {
+        if (!a[0]) return print("cat: name a file", "er");
+        const p = resolve(a[0], cwd);
+        if (!exists(p) || isDir(p)) return print(`cat: ${esc(a[0])}: no such file`, "er");
+        if (FS[p].k === "img") return print("<span class='mut'>(image data, open it in Viewer)</span>");
+        print(esc(readFile(p)));
+      },
+      tree: a => {
+        const root = resolve(a[0] || ".", cwd);
+        if (!isDir(root)) return print("tree: not a directory", "er");
+        const walk = (p, pre) => childrenOf(p).forEach((k, i, arr) => {
+          const last = i === arr.length - 1;
+          print(esc(pre + (last ? "└─ " : "├─ ")) + (isDir(k) ? `<span class="p">${esc(basename(k))}/</span>` : esc(basename(k))));
+          if (isDir(k)) walk(k, pre + (last ? "   " : "│  "));
+        });
+        print(`<span class="p">${esc(root)}</span>`); walk(root, "");
+      },
+      mkdir: a => a[0] ? (mkdir(resolve(a[0], cwd)), refreshFiles()) : print("mkdir: name a folder", "er"),
+      touch: a => a[0] ? (writeFile(resolve(a[0], cwd), ""), refreshFiles()) : print("touch: name a file", "er"),
+      rm: a => {
+        const t = a.filter(x => !x.startsWith("-"));
+        if (!t[0]) return print("rm: name something to remove", "er");
+        const p = resolve(t[0], cwd);
+        if (!exists(p)) return print(`rm: ${esc(t[0])}: no such file`, "er");
+        if (isDir(p) && childrenOf(p).length && !a.includes("-r")) return print("rm: folder is not empty, use rm -r", "er");
+        rm(p); refreshFiles();
+      },
+      mv: a => {
+        if (a.length < 2) return print("mv: mv SOURCE TARGET", "er");
+        const from = resolve(a[0], cwd); let to = resolve(a[1], cwd);
+        if (isDir(to)) to = to + "/" + basename(from);
+        moveTo(from, to) ? refreshFiles() : print("mv: source not found", "er");
+      },
+      cp: a => {
+        if (a.length < 2) return print("cp: cp SOURCE TARGET", "er");
+        const from = resolve(a[0], cwd); let to = resolve(a[1], cwd);
+        if (!exists(from) || isDir(from)) return print("cp: copy files only", "er");
+        if (isDir(to)) to = to + "/" + basename(from);
+        writeFile(to, FS[from].c, FS[from].k); refreshFiles();
+      },
+      echo: (a, raw) => {
+        const m = raw.match(/^(.*?)\s*(>>|>)\s*(\S+)$/);
+        if (!m) return print(esc(raw));
+        const p = resolve(m[3], cwd);
+        writeFile(p, (m[2] === ">>" ? (readFile(p) || "") : "") + m[1] + "\n");
+        refreshFiles();
+      },
+      open: a => { const p = resolve(a[0] || "", cwd); exists(p) ? openPath(p) : print(`open: ${esc(a[0] || "")}: no such path`, "er"); },
+      run: a => APPS[a[0]] ? launch(a[0]) : print(`run: unknown app "${esc(a[0] || "")}", try apps`, "er"),
+      apps: () => print(Object.keys(APPS).filter(k => !APPS[k].hidden).map(k => `<span class="p">${k}</span>  <span class="mut">${esc(APPS[k].desc)}</span>`).join("\n")),
+      theme: a => { const t = a[0] === "dark" ? "dark" : a[0] === "light" ? "light" : (cfg.theme === "dark" ? "light" : "dark"); setTheme(t); print("theme: " + t, "ok"); },
+      wall: a => { const w = "w-" + (a[0] || "grid"); if (!WALLS.find(x => x.id === w)) return print("wall: try " + WALLS.map(x => x.id.slice(2)).join(", "), "er"); setWall(w); print("wallpaper: " + a[0], "ok"); },
+      date: () => print(new Date().toString()),
+      whoami: () => print(cfg.user),
+      uname: () => print("Kestrel 1.0 (falcon) memfs " + navigator.platform),
+      say: (a, raw) => { toast("Terminal", raw || "..."); },
+      history: () => print(hist.map((h, i) => `${String(i + 1).padStart(3)}  ${esc(h)}`).join("\n") || "<span class='mut'>(nothing yet)</span>"),
+      clear: () => out.innerHTML = "",
+      exit: () => { const w = [...wins.values()].find(x => x.body === body); if (w) closeWindow(w.id); },
+      neofetch: () => {
+        const art = ["      ▄▄▖", "    ▄███▖", "  ▄██▀ ▝█▖", " ▟█▀    ▝█▖", "▝▀▘      ▝▘"];
+        const files = Object.values(FS).filter(f => f.t === "f").length;
+        const info = [
+          `<span class="p">${esc(cfg.user)}</span>@<span class="p">kestrel</span>`,
+          "───────────────",
+          `os      Kestrel 1.0 falcon`,
+          `shell   ksh`,
+          `wm      compositor`,
+          `theme   ${cfg.theme}`,
+          `disk    ${files} files`,
+          `uptime  ${Math.round((Date.now() - BOOT_AT) / 1000)}s`,
+          `host    ${esc(navigator.platform || "browser")}`
+        ];
+        const rows = Math.max(art.length, info.length);
+        let o = "";
+        for (let i = 0; i < rows; i++) o += `<span class="p">${(art[i] || "").padEnd(12)}</span>${info[i] || ""}\n`;
+        print(o);
+      }
+    };
+
+    function exec(raw) {
+      const line = raw.trim();
+      print(`<span class="p">${esc(prompt())}</span> ${esc(raw)}`);
+      if (!line) return;
+      hist.push(line); hi = hist.length;
+      const [cmd, ...rest] = line.split(/\s+/);
+      const fn = CMDS[cmd];
+      if (!fn) return print(`ksh: ${esc(cmd)}: command not found. Type help.`, "er");
+      try { fn(rest, line.slice(cmd.length).trim()); }
+      catch (e) { print("error: " + esc(e.message), "er"); }
+    }
+
+    inp.addEventListener("keydown", e => {
+      if (e.key === "Enter") { exec(inp.value); inp.value = ""; term.scrollTop = term.scrollHeight; }
+      else if (e.key === "ArrowUp") { e.preventDefault(); if (hi > 0) inp.value = hist[--hi]; }
+      else if (e.key === "ArrowDown") { e.preventDefault(); inp.value = hi < hist.length - 1 ? hist[++hi] : (hi = hist.length, ""); }
+      else if (e.key === "Tab") {
+        e.preventDefault();
+        const parts = inp.value.split(/\s+/), frag = parts.pop() || "";
+        const dir = frag.includes("/") ? resolve(frag.slice(0, frag.lastIndexOf("/")) || "/", cwd) : cwd;
+        const stem = basename(frag);
+        const hits = childrenOf(dir).map(basename).filter(n => n.startsWith(stem));
+        if (hits.length === 1) {
+          const head = frag.includes("/") ? frag.slice(0, frag.lastIndexOf("/") + 1) : "";
+          inp.value = [...parts, head + hits[0] + (isDir(dir === "/" ? "/" + hits[0] : dir + "/" + hits[0]) ? "/" : "")].join(" ");
+        } else if (hits.length > 1) print(hits.join("   "), "mut");
+      } else if (e.key === "l" && e.ctrlKey) { e.preventDefault(); out.innerHTML = ""; }
+    });
+
+    setPs();
+    print(`<span class="ok">Kestrel shell</span> · type <span class="p">help</span> for the command list, <span class="p">neofetch</span> for a look at the machine.`);
+    setTimeout(() => inp.focus(), 60);
+  }
+};
+
+/* ============================================================
+   6 · Files
+   ============================================================ */
+const fileViews = new Set();
+const refreshFiles = () => fileViews.forEach(f => { try { f(); } catch (e) {} });
+
+APPS.files = {
+  name: "Files", icon: "files", desc: "Browse the disk", w: 660, h: 420,
+  mount(body, win, arg) {
+    let cwd = (arg && exists(arg) && isDir(arg)) ? arg : HOME;
+    let sel = null;
+    const back = [], fwd = [];
+    body.innerHTML = `
+      <div class="fm">
+        <div class="side">
+          <h4>Places</h4>
+          <button data-go="${HOME}">${ico("home")}Home</button>
+          <button data-go="${HOME}/Documents">${ico("folder")}Documents</button>
+          <button data-go="${HOME}/Pictures">${ico("image")}Pictures</button>
+          <button data-go="${HOME}/Projects">${ico("folder")}Projects</button>
+          <h4>Device</h4>
+          <button data-go="/">${ico("disk")}Root</button>
+          <button data-go="/system">${ico("gear")}System</button>
+        </div>
+        <div class="main">
+          <div class="toolbar">
+            <button class="ctl" data-a="back" title="Back">${ico("back")}</button>
+            <button class="ctl" data-a="up" title="Up one level">${ico("up")}</button>
+            <div class="div"></div>
+            <button class="ctl" data-a="newdir">New folder</button>
+            <button class="ctl" data-a="newfile">New file</button>
+            <div class="sp"></div>
+            <button class="ctl" data-a="rename">Rename</button>
+            <button class="ctl" data-a="del" title="Delete">${ico("trash")}</button>
+          </div>
+          <div class="crumbs"></div>
+          <div class="grid"></div>
+        </div>
+      </div>`;
+    const grid = $(".grid", body), crumbs = $(".crumbs", body);
+
+    function render() {
+      if (!exists(cwd)) cwd = HOME;
+      setWinTitle(win, "Files · " + (cwd === HOME ? "Home" : basename(cwd)));
+      crumbs.innerHTML = "";
+      const segs = cwd === "/" ? [] : cwd.split("/").filter(Boolean);
+      const mk = (label, path) => { const b = el("button", "", `<b>${esc(label)}</b>`); b.onclick = () => go(path); crumbs.appendChild(b); };
+      mk("/", "/");
+      let acc = "";
+      segs.forEach(s => { acc += "/" + s; crumbs.appendChild(el("span", "", "&nbsp;›&nbsp;")); mk(s, acc); });
+      $$(".side button", body).forEach(b => b.classList.toggle("on", b.dataset.go === cwd));
+
+      const kids = childrenOf(cwd);
+      grid.innerHTML = "";
+      if (!kids.length) { grid.appendChild(el("div", "empty", "This folder is empty. Use New file to start one.")); return; }
+      kids.forEach(p => {
+        const kind = fileKind(p);
+        const n = el("button", "fitem" + (isDir(p) ? " dir" : "") + (sel === p ? " sel" : ""),
+          `${ico({ folder: "folder", image: "image", text: "text" }[kind] || "file")}<span>${esc(basename(p))}</span>`);
+        n.ondblclick = () => isDir(p) ? go(p) : openPath(p);
+        n.onclick = () => { sel = p; render(); };
+        n.oncontextmenu = e => {
+          e.preventDefault(); sel = p; render();
+          showMenu(e.clientX, e.clientY, [
+            { label: isDir(p) ? "Open folder" : "Open", fn: () => isDir(p) ? go(p) : openPath(p) },
+            { label: "Rename", fn: rename },
+            { label: "Duplicate", fn: () => { if (!isDir(p)) { writeFile(dirname(p) + "/" + uniqueName(dirname(p), basename(p)), FS[p].c, FS[p].k); refreshFiles(); } } },
+            { sep: 1 },
+            { label: "Delete", fn: del }
+          ]);
+        };
+        grid.appendChild(n);
+      });
+    }
+    function go(p) { if (!exists(p)) return; back.push(cwd); cwd = p; sel = null; render(); }
+    async function rename() {
+      if (!sel) return toast("Nothing selected", "Pick an item first");
+      const v = await ask({ title: "Rename", value: basename(sel) });
+      if (!v) return;
+      moveTo(sel, dirname(sel) + "/" + v.replace(/\//g, "-")); sel = null; refreshFiles();
+    }
+    async function del() {
+      if (!sel) return toast("Nothing selected", "Pick an item first");
+      const ok = await ask({ title: "Delete " + basename(sel) + "?", msg: "This cannot be undone.", input: false, ok: "Delete" });
+      if (ok) { rm(sel); sel = null; refreshFiles(); toast("Deleted"); }
+    }
+    $$("[data-go]", body).forEach(b => b.onclick = () => go(b.dataset.go));
+    $$(".toolbar .ctl", body).forEach(b => b.onclick = async () => {
+      const a = b.dataset.a;
+      if (a === "back") { const p = back.pop(); if (p) { cwd = p; sel = null; render(); } }
+      if (a === "up") go(dirname(cwd));
+      if (a === "newdir") { const v = await ask({ title: "New folder", value: uniqueName(cwd, "untitled folder") }); if (v) { mkdir(cwd === "/" ? "/" + v : cwd + "/" + v); refreshFiles(); } }
+      if (a === "newfile") { const v = await ask({ title: "New file", value: uniqueName(cwd, "untitled.txt") }); if (v) { writeFile(cwd === "/" ? "/" + v : cwd + "/" + v, ""); refreshFiles(); } }
+      if (a === "rename") rename();
+      if (a === "del") del();
+    });
+    grid.oncontextmenu = e => {
+      if (e.target.closest(".fitem")) return;
+      e.preventDefault();
+      showMenu(e.clientX, e.clientY, [
+        { label: "New folder", fn: () => $('[data-a="newdir"]', body).click() },
+        { label: "New file", fn: () => $('[data-a="newfile"]', body).click() },
+        { sep: 1 },
+        { label: "Open in Terminal", fn: () => launch("terminal") }
+      ]);
+    };
+    fileViews.add(render);
+    render();
+    return () => fileViews.delete(render);
+  }
+};
+
+/* ============================================================
+   7 · TextEdit + Viewer
+   ============================================================ */
+APPS.editor = {
+  name: "TextEdit", icon: "edit", desc: "Write and save notes", w: 600, h: 420,
+  mount(body, win, arg) {
+    let path = (arg && exists(arg) && !isDir(arg)) ? arg : null;
+    body.innerHTML = `
+      <div class="stack">
+        <div class="toolbar">
+          <button class="ctl" data-a="new">New</button>
+          <button class="ctl" data-a="open">Open</button>
+          <button class="ctl" data-a="save" style="font-weight:600">Save</button>
+          <button class="ctl" data-a="saveas">Save as</button>
+          <div class="sp"></div>
+          <span class="chip" data-role="path">untitled</span>
+        </div>
+        <textarea class="editor" spellcheck="false" placeholder="Start typing."></textarea>
+        <div class="statusbar"><span data-role="stats"></span><span data-role="saved"></span></div>
+      </div>`;
+    const ta = $("textarea", body), chip = $('[data-role="path"]', body);
+    const stats = $('[data-role="stats"]', body), savedEl = $('[data-role="saved"]', body);
+    let dirty = false;
+
+    const load = p => { path = p; ta.value = readFile(p) || ""; dirty = false; sync(); };
+    function sync() {
+      chip.textContent = path ? basename(path) : "untitled";
+      setWinTitle(win, (dirty ? "• " : "") + (path ? basename(path) : "untitled") + " · TextEdit");
+      const t = ta.value;
+      stats.textContent = `${t.length} chars · ${t.trim() ? t.trim().split(/\s+/).length : 0} words · ${t.split("\n").length} lines`;
+      savedEl.textContent = dirty ? "unsaved" : (path ? "saved" : "");
+    }
+    async function doSave(force) {
+      let p = path;
+      if (!p || force) {
+        const v = await ask({ title: force ? "Save as" : "Save file", msg: "Saved into Documents unless you give a full path.", value: p ? basename(p) : uniqueName(HOME + "/Documents", "untitled.txt") });
+        if (!v) return;
+        p = v.startsWith("/") ? v : HOME + "/Documents/" + v;
+      }
+      writeFile(p, ta.value); path = p; dirty = false; sync(); refreshFiles();
+      toast("Saved", basename(p));
+    }
+    ta.addEventListener("input", () => { dirty = true; sync(); });
+    ta.addEventListener("keydown", e => { if ((e.metaKey || e.ctrlKey) && e.key === "s") { e.preventDefault(); doSave(false); } });
+    $$(".toolbar .ctl", body).forEach(b => b.onclick = async () => {
+      const a = b.dataset.a;
+      if (a === "new") { path = null; ta.value = ""; dirty = false; sync(); ta.focus(); }
+      if (a === "save") doSave(false);
+      if (a === "saveas") doSave(true);
+      if (a === "open") {
+        const files = Object.keys(FS).filter(k => FS[k].t === "f" && FS[k].k !== "img");
+        const v = await ask({ title: "Open file", msg: files.map(basename).slice(0, 8).join(", "), value: path || HOME + "/Documents/readme.txt" });
+        if (!v) return;
+        const p = v.startsWith("/") ? v : HOME + "/Documents/" + v;
+        exists(p) ? load(p) : toast("Not found", p);
+      }
+    });
+    if (path) load(path); else sync();
+  }
+};
+
+APPS.viewer = {
+  name: "Viewer", icon: "image", desc: "Look at pictures", w: 520, h: 420, hidden: true,
+  mount(body, win, arg) {
+    const src = arg && readFile(arg);
+    setWinTitle(win, (arg ? basename(arg) : "Viewer") + " · Viewer");
+    body.innerHTML = src
+      ? `<div class="paintwrap"><img src="${src}" alt="${esc(basename(arg))}" style="max-width:100%;box-shadow:0 4px 16px rgba(0,0,0,.25);border-radius:4px;"></div>`
+      : `<div class="pad"><h2 class="appt">Nothing to show</h2><p class="sub">Open an image from Files, or draw one in Paint.</p></div>`;
+  }
+};
+
+/* ============================================================
+   8 · Calculator
+   ============================================================ */
+APPS.calc = {
+  name: "Calculator", icon: "calc", desc: "Arithmetic, keyboard friendly", w: 268, h: 372,
+  mount(body) {
+    const keys = [["C", "±", "%", "÷"], ["7", "8", "9", "×"], ["4", "5", "6", "−"], ["1", "2", "3", "+"], ["0", ".", "⌫", "="]];
+    body.innerHTML = `<div class="calc">
+      <div class="readout"><div class="sm"></div><div class="big">0</div></div>
+      <div class="keys">${keys.flat().map(k =>
+        `<button class="ctl ${"÷×−+".includes(k) ? "op" : ""} ${k === "=" ? "eq" : ""}" data-k="${k}">${k}</button>`).join("")}</div>
+    </div>`;
+    const big = $(".big", body), sm = $(".sm", body);
+    let acc = null, op = null, cur = "0", fresh = true;
+    const show = () => { big.textContent = cur.length > 12 ? Number(cur).toPrecision(9) : cur; sm.textContent = acc !== null ? `${acc} ${op || ""}` : ""; };
+    const calcOp = (a, b, o) => o === "+" ? a + b : o === "−" ? a - b : o === "×" ? a * b : o === "÷" ? (b === 0 ? NaN : a / b) : b;
+    function press(k) {
+      if (/[0-9]/.test(k)) { cur = fresh ? k : (cur === "0" ? k : cur + k); fresh = false; }
+      else if (k === ".") { if (fresh) { cur = "0."; fresh = false; } else if (!cur.includes(".")) cur += "."; }
+      else if (k === "C") { acc = null; op = null; cur = "0"; fresh = true; }
+      else if (k === "⌫") { cur = cur.length > 1 ? cur.slice(0, -1) : "0"; }
+      else if (k === "±") { cur = cur.startsWith("-") ? cur.slice(1) : "-" + cur; }
+      else if (k === "%") { cur = String(parseFloat(cur) / 100); }
+      else if ("+−×÷".includes(k)) {
+        if (acc !== null && op && !fresh) acc = calcOp(acc, parseFloat(cur), op);
+        else acc = parseFloat(cur);
+        op = k; fresh = true; cur = String(acc);
+      } else if (k === "=") {
+        if (op !== null && acc !== null) {
+          const r = calcOp(acc, parseFloat(cur), op);
+          cur = Number.isFinite(r) ? String(Math.round(r * 1e10) / 1e10) : "undefined";
+          acc = null; op = null; fresh = true;
+        }
+      }
+      show();
+    }
+    $$("[data-k]", body).forEach(b => b.onclick = () => press(b.dataset.k));
+    const map = { "/": "÷", "*": "×", "-": "−", "+": "+", "Enter": "=", "=": "=", "Backspace": "⌫", "Escape": "C", "c": "C", "%": "%" };
+    body.tabIndex = 0;
+    body.addEventListener("keydown", e => {
+      const k = map[e.key] || (/^[0-9.]$/.test(e.key) ? e.key : null);
+      if (k) { e.preventDefault(); press(k); const btn = $(`[data-k="${k}"]`, body); if (btn) { btn.classList.add("on"); setTimeout(() => btn.classList.remove("on"), 90); } }
+    });
+    setTimeout(() => body.focus(), 40);
+    show();
+  }
+};
+
+/* ============================================================
+   9 · Paint
+   ============================================================ */
+APPS.paint = {
+  name: "Paint", icon: "paint", desc: "Draw and save a picture", w: 520, h: 452,
+  mount(body, win) {
+    const PAL = ["#1b1d1e", "#cf5a4c", "#f0a92c", "#4f9d69", "#2f7fa8", "#8a5ba8", "#c9825f", "#ffffff"];
+    body.innerHTML = `
+      <div class="stack">
+        <div class="toolbar">
+          <div class="swatches">${PAL.map((c, i) => `<button class="sw ${i === 0 ? "on" : ""}" data-c="${c}" style="background:${c}" title="${c}"></button>`).join("")}</div>
+          <div class="div"></div>
+          <button class="ctl" data-s="2">Fine</button>
+          <button class="ctl on" data-s="6">Medium</button>
+          <button class="ctl" data-s="18">Broad</button>
+          <div class="div"></div>
+          <button class="ctl" data-a="erase">Eraser</button>
+          <button class="ctl" data-a="clear">Clear</button>
+          <div class="sp"></div>
+          <button class="ctl" data-a="save" style="font-weight:600">Save to Pictures</button>
+        </div>
+        <div class="paintwrap"><canvas width="440" height="320"></canvas></div>
+      </div>`;
+    const cv = $("canvas", body), ctx = cv.getContext("2d");
+    ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, cv.width, cv.height);
+    ctx.lineCap = "round"; ctx.lineJoin = "round";
+    let color = PAL[0], size = 6, erasing = false, drawing = false, last = null;
+    const pos = e => { const r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) * cv.width / r.width, y: (e.clientY - r.top) * cv.height / r.height }; };
+    cv.addEventListener("pointerdown", e => { drawing = true; last = pos(e); cv.setPointerCapture(e.pointerId); stroke(last, last); });
+    cv.addEventListener("pointermove", e => { if (!drawing) return; const p = pos(e); stroke(last, p); last = p; });
+    ["pointerup", "pointercancel", "pointerleave"].forEach(t => cv.addEventListener(t, () => drawing = false));
+    function stroke(a, b) {
+      ctx.strokeStyle = erasing ? "#ffffff" : color;
+      ctx.lineWidth = erasing ? size * 2.4 : size;
+      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+    }
+    $$("[data-c]", body).forEach(b => b.onclick = () => {
+      color = b.dataset.c; erasing = false;
+      $$("[data-c]", body).forEach(x => x.classList.toggle("on", x === b));
+      $('[data-a="erase"]', body).classList.remove("on");
+    });
+    $$("[data-s]", body).forEach(b => b.onclick = () => { size = +b.dataset.s; $$("[data-s]", body).forEach(x => x.classList.toggle("on", x === b)); });
+    $('[data-a="erase"]', body).onclick = e => { erasing = !erasing; e.currentTarget.classList.toggle("on", erasing); };
+    $('[data-a="clear"]', body).onclick = () => { ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, cv.width, cv.height); };
+    $('[data-a="save"]', body).onclick = async () => {
+      const v = await ask({ title: "Save picture", value: uniqueName(HOME + "/Pictures", "drawing.png") });
+      if (!v) return;
+      const p = HOME + "/Pictures/" + v.replace(/\//g, "-");
+      writeFile(p, cv.toDataURL("image/png"), "img");
+      refreshFiles(); setWinTitle(win, basename(p) + " · Paint");
+      toast("Saved to Pictures", basename(p));
+    };
+  }
+};
+
+/* ============================================================
+   10 · Browser  (a tiny local network)
+   ============================================================ */
+const SITES = {
+  "home.kestrel": () => `
+    <h1>The local network</h1>
+    <p>Four machines answer on this loop. There is no route off the board, so nothing here can be tampered with from outside.</p>
+    <div class="card"><h3 style="margin-top:0">Pages</h3><ul>
+      <li><a data-go="manual.kestrel">manual.kestrel</a> — how to drive this thing</li>
+      <li><a data-go="status.kestrel">status.kestrel</a> — live readings from the machine</li>
+      <li><a data-go="logbook.kestrel">logbook.kestrel</a> — leave a note for the next session</li>
+    </ul></div>
+    <p class="hint">Try typing a name that does not exist. The error page is worth a look.</p>`,
+  "manual.kestrel": () => `
+    <h1>Manual</h1>
+    <p>Kestrel keeps its whole world in memory and writes it back to browser storage on every change, so the files you make survive a reload.</p>
+    <h3>Windows</h3>
+    <ul>
+      <li>Drag a title bar to the top edge to maximise, to a side edge to take half the screen.</li>
+      <li>The three lamps are minimise, maximise, close.</li>
+      <li>Grab any edge or the bottom right corner to resize.</li>
+    </ul>
+    <h3>Keyboard</h3>
+    <ul>
+      <li><code>Ctrl</code> + <code>Space</code> opens the menu, then type to search.</li>
+      <li><code>Ctrl</code> + <code>Alt</code> + <code>T</code> opens a terminal anywhere.</li>
+      <li><code>Ctrl</code> + <code>W</code> closes the front window, <code>Alt</code> + <code>Tab</code> cycles.</li>
+      <li>In TextEdit, <code>Ctrl</code> + <code>S</code> saves.</li>
+    </ul>
+    <h3>Shell</h3>
+    <p>The terminal is not a prop. It reads and writes the same filesystem the Files window shows, so <code>echo hello &gt; note.txt</code> makes a real file you can then open and edit.</p>`,
+  "status.kestrel": () => {
+    const files = Object.values(FS).filter(f => f.t === "f").length;
+    const dirs = Object.values(FS).filter(f => f.t === "d").length;
+    const bytes = new Blob([JSON.stringify(FS)]).size;
+    return `<h1>Status</h1>
+      <div class="card"><ul>
+        <li>uptime <b>${Math.round((Date.now() - BOOT_AT) / 1000)}s</b></li>
+        <li>windows open <b>${wins.size}</b></li>
+        <li>files <b>${files}</b>, folders <b>${dirs}</b></li>
+        <li>disk used <b>${(bytes / 1024).toFixed(1)} KB</b></li>
+        <li>theme <b>${cfg.theme}</b>, wallpaper <b>${cfg.wall.slice(2)}</b></li>
+        <li>viewport <b>${innerWidth}×${innerHeight}</b></li>
+      </ul></div>
+      <p>Reload the page to take a fresh reading.</p>`;
+  },
+  "logbook.kestrel": () => {
+    const p = "/system/logs/logbook.txt";
+    const body = readFile(p) || "";
+    return `<h1>Logbook</h1>
+      <p>Notes written here are appended to <code>${p}</code>, which means the terminal and Files can read them too.</p>
+      <div class="card"><pre style="font-family:var(--mono);font-size:12px;white-space:pre-wrap">${esc(body || "Nothing written yet.")}</pre></div>
+      <p><a data-act="addlog">Add an entry</a></p>`;
+  }
+};
+
+APPS.browser = {
+  name: "Browser", icon: "globe", desc: "Read the local network", w: 660, h: 460,
+  mount(body, win) {
+    body.innerHTML = `
+      <div class="bwrap">
+        <div class="toolbar">
+          <button class="ctl" data-a="back">${ico("back")}</button>
+          <button class="ctl" data-a="fwd">${ico("fwd")}</button>
+          <button class="ctl" data-a="reload">${ico("reload")}</button>
+          <input class="tb-in" style="flex:1;font-family:var(--mono);font-size:12px" value="home.kestrel">
+          <button class="ctl" data-a="go">Open</button>
+        </div>
+        <div class="page"></div>
+      </div>`;
+    const page = $(".page", body), bar = $("input", body);
+    const hist = []; let idx = -1;
+
+    function render(addr, push = true) {
+      addr = addr.trim().replace(/^https?:\/\//, "").replace(/\/$/, "").toLowerCase() || "home.kestrel";
+      bar.value = addr;
+      const site = SITES[addr];
+      page.innerHTML = site ? site() : `
+        <h1>No answer from ${esc(addr)}</h1>
+        <p>Nothing on this loop responds to that name. The machines that do are:</p>
+        <ul>${Object.keys(SITES).map(k => `<li><a data-go="${k}">${k}</a></li>`).join("")}</ul>`;
+      page.scrollTop = 0;
+      setWinTitle(win, addr + " · Browser");
+      if (push) { hist.splice(idx + 1); hist.push(addr); idx = hist.length - 1; }
+      $$("[data-go]", page).forEach(a => a.onclick = () => render(a.dataset.go));
+      const add = $('[data-act="addlog"]', page);
+      if (add) add.onclick = async () => {
+        const v = await ask({ title: "Add a logbook entry", value: "" });
+        if (!v) return;
+        const p = "/system/logs/logbook.txt";
+        writeFile(p, (readFile(p) || "") + `[${new Date().toLocaleString()}] ${cfg.user}: ${v}\n`);
+        refreshFiles(); render(addr, false); toast("Entry written", basename(p));
+      };
+    }
+    $$(".toolbar .ctl", body).forEach(b => b.onclick = () => {
+      const a = b.dataset.a;
+      if (a === "back" && idx > 0) render(hist[--idx], false);
+      if (a === "fwd" && idx < hist.length - 1) render(hist[++idx], false);
+      if (a === "reload") render(hist[idx] || "home.kestrel", false);
+      if (a === "go") render(bar.value);
+    });
+    bar.addEventListener("keydown", e => { if (e.key === "Enter") render(bar.value); });
+    render("home.kestrel");
+  }
+};
+
+/* ============================================================
+   11 · Settings
+   ============================================================ */
+const WALLS = [
+  { id: "w-grid", name: "Drafting grid" },
+  { id: "w-topo", name: "Contour" },
+  { id: "w-dusk", name: "Dusk" },
+  { id: "w-slate", name: "Slate" },
+  { id: "w-pulp", name: "Ember" }
+];
+const ACCENTS = ["#f0a92c", "#4f9d69", "#cf5a4c", "#2f7fa8", "#8a5ba8", "#d0d3d6"];
+
+APPS.settings = {
+  name: "Settings", icon: "gear", desc: "Appearance and system", w: 560, h: 420, single: true,
+  mount(body) {
+    let tab = "look";
+    body.innerHTML = `<div class="set">
+      <div class="nav">
+        <button data-t="look" class="on">Appearance</button>
+        <button data-t="acct">Account</button>
+        <button data-t="sys">System</button>
+      </div>
+      <div class="body"></div>
+    </div>`;
+    const pane = $(".body", body);
+
+    function render() {
+      $$(".nav button", body).forEach(b => b.classList.toggle("on", b.dataset.t === tab));
+      if (tab === "look") {
+        pane.innerHTML = `
+          <h2 class="appt">Appearance</h2>
+          <p class="sub">Changes apply straight away and are remembered.</p>
+          <div class="row"><div><div class="lbl">Dark chrome</div><div class="desc">Turns the panels from appliance grey to graphite.</div></div>
+            <button class="toggle ${cfg.theme === "dark" ? "on" : ""}" data-a="theme"></button></div>
+          <div class="row" style="flex-direction:column;align-items:stretch">
+            <div><div class="lbl">Wallpaper</div><div class="desc">Sits behind every window.</div></div>
+            <div class="walls">${WALLS.map(w => `<button class="wallsw ${w.id} ${cfg.wall === w.id ? "on" : ""}" data-w="${w.id}" title="${w.name}"></button>`).join("")}</div>
+          </div>
+          <div class="row"><div><div class="lbl">Signal colour</div><div class="desc">Used for lamps, focus rings and active state.</div></div>
+            <div class="swatches">${ACCENTS.map(c => `<button class="sw ${cfg.accent === c ? "on" : ""}" data-acc="${c}" style="background:${c}"></button>`).join("")}</div></div>
+          <div class="row"><div><div class="lbl">Animation</div><div class="desc">Window and menu transitions.</div></div>
+            <button class="toggle ${cfg.motion ? "on" : ""}" data-a="motion"></button></div>`;
+      }
+      if (tab === "acct") {
+        pane.innerHTML = `
+          <h2 class="appt">Account</h2>
+          <p class="sub">One local account. No password, no network, nothing leaves the page.</p>
+          <div class="row"><div><div class="lbl">Name</div><div class="desc">Shown on the lock screen and in the shell prompt.</div></div>
+            <input class="tb-in" data-a="user" value="${esc(cfg.user)}" style="width:170px"></div>
+          <div class="row"><div><div class="lbl">Sessions</div><div class="desc">Times this machine has been started.</div></div><span class="chip">${cfg.visits}</span></div>
+          <div class="row"><div><div class="lbl">Lock the screen</div><div class="desc">Windows stay open behind it.</div></div>
+            <button class="ctl" data-a="lock">Lock now</button></div>`;
+      }
+      if (tab === "sys") {
+        const files = Object.values(FS).filter(f => f.t === "f").length;
+        const bytes = new Blob([JSON.stringify({ FS, cfg })]).size;
+        pane.innerHTML = `
+          <h2 class="appt">System</h2>
+          <p class="sub">Kestrel 1.0 “falcon”. Filesystem in memory, mirrored to browser storage.</p>
+          <div class="row"><div class="lbl">Storage used</div><span class="chip">${(bytes / 1024).toFixed(1)} KB · ${files} files</span></div>
+          <div class="row"><div class="lbl">Open windows</div><span class="chip">${wins.size}</span></div>
+          <div class="row"><div class="lbl">Renderer</div><span class="chip">${esc(navigator.platform || "browser")}</span></div>
+          <div class="row"><div><div class="lbl">Reset the machine</div><div class="desc">Deletes every file and restores the factory disk.</div></div>
+            <button class="ctl" data-a="reset">Erase and restart</button></div>`;
+      }
+      wire();
+    }
+    function wire() {
+      const t = $('[data-a="theme"]', pane); if (t) t.onclick = () => { setTheme(cfg.theme === "dark" ? "light" : "dark"); render(); };
+      const m = $('[data-a="motion"]', pane); if (m) m.onclick = () => { cfg.motion = !cfg.motion; document.documentElement.dataset.motion = cfg.motion ? "on" : "off"; save(); render(); };
+      $$("[data-w]", pane).forEach(b => b.onclick = () => { setWall(b.dataset.w); render(); });
+      $$("[data-acc]", pane).forEach(b => b.onclick = () => { setAccent(b.dataset.acc); render(); });
+      const u = $('[data-a="user"]', pane);
+      if (u) u.onchange = () => { cfg.user = (u.value.trim() || "operator").slice(0, 18); save(); paintUser(); toast("Name updated", cfg.user); };
+      const lb = $('[data-a="lock"]', pane); if (lb) lb.onclick = lockScreen;
+      const r = $('[data-a="reset"]', pane);
+      if (r) r.onclick = async () => {
+        const ok = await ask({ title: "Erase everything?", msg: "Every file you made is deleted and the machine restarts.", input: false, ok: "Erase" });
+        if (!ok) return;
+        seedFS(); cfg = { ...DEFAULT_CFG }; applyCfg(); save();
+        [...wins.keys()].forEach(closeWindow);
+        toast("Machine reset", "Factory disk restored");
+      };
+    }
+    $$(".nav button", body).forEach(b => b.onclick = () => { tab = b.dataset.t; render(); });
+    render();
+  }
+};
+
+/* ============================================================
+   12 · Snake
+   ============================================================ */
+APPS.snake = {
+  name: "Snake", icon: "game", desc: "Eat, grow, do not bite yourself", w: 430, h: 470,
+  mount(body, win) {
+    const C = 16, W = 22, H = 16;
+    body.innerHTML = `<div class="game">
+      <div class="scorebar"><span>score<b data-role="s">0</b></span><span>best<b data-role="h">${cfg.snakeHigh}</b></span><span>speed<b data-role="v">1</b></span></div>
+      <canvas width="${W * C}" height="${H * C}"></canvas>
+      <div style="display:flex;gap:12px;align-items:center">
+        <button class="ctl" data-a="play" style="font-weight:600">Start</button>
+        <span class="hint">Arrow keys or WASD</span>
+      </div>
+      <div class="dpad">
+        <span></span><button class="ctl" data-d="u">${ico("up")}</button><span></span>
+        <button class="ctl" data-d="l">${ico("left")}</button><button class="ctl" data-d="d">${ico("down")}</button><button class="ctl" data-d="r">${ico("right")}</button>
+      </div>
+    </div>`;
+    const cv = $("canvas", body), g = cv.getContext("2d");
+    const sEl = $('[data-role="s"]', body), hEl = $('[data-role="h"]', body), vEl = $('[data-role="v"]', body);
+    let snake, dir, next, food, score, timer, tick, alive = false;
+
+    function reset() {
+      snake = [{ x: 6, y: 8 }, { x: 5, y: 8 }, { x: 4, y: 8 }];
+      dir = { x: 1, y: 0 }; next = dir; score = 0; tick = 130; alive = true;
+      dropFood(); sEl.textContent = 0; vEl.textContent = "1";
+      clearInterval(timer); timer = setInterval(step, tick);
+      $('[data-a="play"]', body).textContent = "Restart";
+      draw();
+    }
+    function dropFood() {
+      do { food = { x: (Math.random() * W) | 0, y: (Math.random() * H) | 0 }; }
+      while (snake.some(s => s.x === food.x && s.y === food.y));
+    }
+    function step() {
+      dir = next;
+      const head = { x: snake[0].x + dir.x, y: snake[0].y + dir.y };
+      if (head.x < 0 || head.y < 0 || head.x >= W || head.y >= H || snake.some(s => s.x === head.x && s.y === head.y)) return over();
+      snake.unshift(head);
+      if (head.x === food.x && head.y === food.y) {
+        score += 10; sEl.textContent = score; dropFood();
+        if (score % 50 === 0 && tick > 60) { tick -= 12; vEl.textContent = String(1 + ((130 - tick) / 12) | 0); clearInterval(timer); timer = setInterval(step, tick); }
+      } else snake.pop();
+      draw();
+    }
+    function over() {
+      alive = false; clearInterval(timer);
+      if (score > cfg.snakeHigh) { cfg.snakeHigh = score; hEl.textContent = score; save(); toast("New best", score + " points"); }
+      draw();
+      g.fillStyle = "rgba(9,15,13,.82)"; g.fillRect(0, 0, cv.width, cv.height);
+      g.fillStyle = "#f0a92c"; g.font = "600 20px " + getComputedStyle(document.body).fontFamily;
+      g.textAlign = "center";
+      g.fillText("Game over", cv.width / 2, cv.height / 2 - 6);
+      g.fillStyle = "#9fb0a9"; g.font = "13px " + getComputedStyle(document.body).fontFamily;
+      g.fillText(score + " points · press Restart", cv.width / 2, cv.height / 2 + 18);
+    }
+    function draw() {
+      g.fillStyle = "#0f1a16"; g.fillRect(0, 0, cv.width, cv.height);
+      g.strokeStyle = "rgba(255,255,255,.035)";
+      for (let i = 0; i <= W; i++) { g.beginPath(); g.moveTo(i * C, 0); g.lineTo(i * C, cv.height); g.stroke(); }
+      for (let j = 0; j <= H; j++) { g.beginPath(); g.moveTo(0, j * C); g.lineTo(cv.width, j * C); g.stroke(); }
+      g.fillStyle = "#cf5a4c";
+      g.fillRect(food.x * C + 4, food.y * C + 4, C - 8, C - 8);
+      snake.forEach((s, i) => {
+        g.fillStyle = i === 0 ? "#f0a92c" : `rgba(79,157,105,${1 - i / (snake.length + 6)})`;
+        g.fillRect(s.x * C + 1.5, s.y * C + 1.5, C - 3, C - 3);
+      });
+    }
+    const turn = d => {
+      const map = { u: { x: 0, y: -1 }, d: { x: 0, y: 1 }, l: { x: -1, y: 0 }, r: { x: 1, y: 0 } }[d];
+      if (!alive || !map) return;
+      if (map.x === -dir.x && map.y === -dir.y) return;
+      next = map;
+    };
+    const keymap = { ArrowUp: "u", ArrowDown: "d", ArrowLeft: "l", ArrowRight: "r", w: "u", s: "d", a: "l", d: "r" };
+    const onKey = e => {
+      if (focused !== win.id) return;
+      const k = keymap[e.key];
+      if (k) { e.preventDefault(); turn(k); }
+      if (e.key === " ") { e.preventDefault(); reset(); }
+    };
+    window.addEventListener("keydown", onKey);
+    $$("[data-d]", body).forEach(b => b.onclick = () => turn(b.dataset.d));
+    $('[data-a="play"]', body).onclick = reset;
+    snake = [{ x: 6, y: 8 }]; dir = { x: 1, y: 0 }; food = { x: 14, y: 8 }; draw();
+    g.fillStyle = "#9fb0a9"; g.textAlign = "center";
+    g.font = "13px " + getComputedStyle(document.body).fontFamily;
+    g.fillText("Press Start", cv.width / 2, cv.height / 2);
+    return () => { clearInterval(timer); window.removeEventListener("keydown", onKey); };
+  }
+};
+
+/* ============================================================
+   13 · Studio  (step sequencer, Web Audio)
+   ============================================================ */
+APPS.studio = {
+  name: "Studio", icon: "music", desc: "Build a loop and play it", w: 560, h: 350,
+  mount(body) {
+    const TRACKS = [
+      { nm: "kick",  type: "kick" },
+      { nm: "snare", type: "snare" },
+      { nm: "hat",   type: "hat" },
+      { nm: "bass A", type: "tone", f: 110, wave: "square", d: .22 },
+      { nm: "bass E", type: "tone", f: 82.4, wave: "square", d: .22 },
+      { nm: "lead C", type: "tone", f: 523.3, wave: "triangle", d: .16 },
+      { nm: "lead G", type: "tone", f: 784, wave: "triangle", d: .16 }
+    ];
+    const STEPS = 16;
+    const seed = [
+      "1000100010001000", "0000100000001010", "1010101010101011",
+      "1000000010000000", "0000100000100000", "0010001000000100", "0000000000100010"
+    ];
+    const pat = TRACKS.map((t, i) => seed[i].split("").map(c => c === "1"));
+    let ac = null, playing = false, cur = 0, timer = null, bpm = 108;
+
+    body.innerHTML = `<div class="stack">
+      <div class="toolbar">
+        <button class="ctl" data-a="play" style="font-weight:600;min-width:74px">${ico("play")} Play</button>
+        <button class="ctl" data-a="clear">Clear</button>
+        <div class="div"></div>
+        <span class="hint">tempo</span>
+        <input type="range" min="70" max="170" value="108" data-a="bpm" style="width:110px">
+        <span class="chip" data-role="bpm">108 bpm</span>
+      </div>
+      <div class="seq">${TRACKS.map((t, r) =>
+        `<div class="track"><span class="nm">${t.nm}</span><div class="steps">${Array.from({ length: STEPS }, (_, c) =>
+          `<button class="step ${c % 4 === 0 ? "beat" : ""} ${pat[r][c] ? "on" : ""}" data-r="${r}" data-c="${c}"></button>`).join("")}</div></div>`).join("")}
+      </div>
+    </div>`;
+
+    const cells = $$(".step", body);
+    const at = (r, c) => cells[r * STEPS + c];
+    cells.forEach(b => b.onclick = () => {
+      const r = +b.dataset.r, c = +b.dataset.c;
+      pat[r][c] = !pat[r][c];
+      b.classList.toggle("on", pat[r][c]);
+      if (pat[r][c]) { ensure(); voice(TRACKS[r], ac.currentTime); }
+    });
+
+    function ensure() { if (!ac) ac = new (window.AudioContext || window.webkitAudioContext)(); if (ac.state === "suspended") ac.resume(); }
+    function noise(dur) {
+      const n = ac.sampleRate * dur, buf = ac.createBuffer(1, n, ac.sampleRate), d = buf.getChannelData(0);
+      for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+      const src = ac.createBufferSource(); src.buffer = buf; return src;
+    }
+    function voice(t, when) {
+      const g = ac.createGain(); g.connect(ac.destination);
+      if (t.type === "kick") {
+        const o = ac.createOscillator(); o.type = "sine";
+        o.frequency.setValueAtTime(140, when); o.frequency.exponentialRampToValueAtTime(46, when + .12);
+        g.gain.setValueAtTime(.34, when); g.gain.exponentialRampToValueAtTime(.001, when + .26);
+        o.connect(g); o.start(when); o.stop(when + .3);
+      } else if (t.type === "snare" || t.type === "hat") {
+        const isHat = t.type === "hat";
+        const src = noise(isHat ? .05 : .2);
+        const f = ac.createBiquadFilter(); f.type = "highpass"; f.frequency.value = isHat ? 7200 : 1400;
+        g.gain.setValueAtTime(isHat ? .12 : .22, when);
+        g.gain.exponentialRampToValueAtTime(.001, when + (isHat ? .05 : .18));
+        src.connect(f); f.connect(g); src.start(when); src.stop(when + .25);
+      } else {
+        const o = ac.createOscillator(); o.type = t.wave; o.frequency.value = t.f;
+        g.gain.setValueAtTime(.001, when);
+        g.gain.exponentialRampToValueAtTime(.16, when + .012);
+        g.gain.exponentialRampToValueAtTime(.001, when + t.d);
+        o.connect(g); o.start(when); o.stop(when + t.d + .05);
+      }
+    }
+    function tick() {
+      cells.forEach(b => b.classList.remove("cur"));
+      for (let r = 0; r < TRACKS.length; r++) {
+        at(r, cur).classList.add("cur");
+        if (pat[r][cur]) voice(TRACKS[r], ac.currentTime + .01);
+      }
+      cur = (cur + 1) % STEPS;
+    }
+    function toggle() {
+      const btn = $('[data-a="play"]', body);
+      if (playing) {
+        playing = false; clearInterval(timer); cells.forEach(b => b.classList.remove("cur"));
+        btn.innerHTML = ico("play") + " Play"; btn.classList.remove("on");
+      } else {
+        ensure(); playing = true; cur = 0;
+        timer = setInterval(tick, 60000 / bpm / 4);
+        btn.innerHTML = ico("stop") + " Stop"; btn.classList.add("on");
+      }
+    }
+    $('[data-a="play"]', body).onclick = toggle;
+    $('[data-a="clear"]', body).onclick = () => { pat.forEach(r => r.fill(false)); cells.forEach(b => b.classList.remove("on")); };
+    $('[data-a="bpm"]', body).oninput = e => {
+      bpm = +e.target.value;
+      $('[data-role="bpm"]', body).textContent = bpm + " bpm";
+      if (playing) { clearInterval(timer); timer = setInterval(tick, 60000 / bpm / 4); }
+    };
+    return () => { clearInterval(timer); if (ac) ac.close(); };
+  }
+};
+
+/* ============================================================
+   14 · About
+   ============================================================ */
+APPS.about = {
+  name: "About", icon: "info", desc: "What this machine is", w: 470, h: 400, single: true,
+  mount(body) {
+    body.innerHTML = `<div class="pad" style="user-select:text">
+      <div style="display:flex;gap:14px;align-items:flex-start;margin-bottom:14px">
+        <div style="width:52px;height:52px;border-radius:12px;background:linear-gradient(180deg,var(--shell-hi),var(--shell-lo));display:grid;place-items:center;border:1px solid var(--edge);flex:none">
+          <svg viewBox="0 0 24 24" width="27" height="27" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20c4-1 6-3 7-6"/><path d="M10 14c5-1 8-4 9-9-3 1-5 1-7 0-2 3-3 6-2 9z"/><path d="M12 8l4-2"/></svg>
+        </div>
+        <div><h2 class="appt" style="font-size:20px">Kestrel OS 1.0</h2>
+        <p class="hint">falcon · memfs · compositor build ${new Date().getFullYear()}</p></div>
+      </div>
+      <p class="sub">A small desktop that lives entirely in one HTML file. No server, no framework, no build step. The window manager, shell, filesystem and apps are about two thousand lines of plain JavaScript.</p>
+      <div class="row"><div class="lbl">Filesystem</div><span class="chip">in memory, mirrored to storage</span></div>
+      <div class="row"><div class="lbl">Windows</div><span class="chip">drag, snap, resize, minimise</span></div>
+      <div class="row"><div class="lbl">Apps</div><span class="chip">${Object.values(APPS).filter(a => !a.hidden).length} installed</span></div>
+      <div class="row"><div class="lbl">Audio</div><span class="chip">synthesised, no samples</span></div>
+      <p class="sub" style="margin-top:16px">Everything you make is kept between visits. Settings has a reset if you want the factory disk back.</p>
+    </div>`;
+  }
+};
+
+/* ============================================================
+   15 · shell: theme, desktop, menus, clock, lock
+   ============================================================ */
+const BOOT_AT = Date.now();
+
+function setTheme(t) { cfg.theme = t; document.documentElement.dataset.theme = t; save(); }
+function setWall(w) { cfg.wall = w; $("#wall").className = w; save(); }
+function setAccent(c) { cfg.accent = c; document.documentElement.style.setProperty("--amber", c); save(); }
+function applyCfg() {
+  document.documentElement.dataset.theme = cfg.theme;
+  document.documentElement.dataset.motion = cfg.motion ? "on" : "off";
+  document.documentElement.style.setProperty("--amber", cfg.accent);
+  $("#wall").className = cfg.wall;
+  paintUser();
+}
+function paintUser() {
+  const initial = (cfg.user[0] || "o").toUpperCase();
+  $("#lockname").textContent = cfg.user;
+  $("#startname").textContent = cfg.user;
+  $("#lockav").textContent = initial;
+  $("#startav").textContent = initial;
+}
+
+/* ---- desktop icons ---- */
+const DESK_ICONS = ["terminal", "files", "editor", "browser", "paint", "studio", "snake", "calc", "settings", "about"];
+function buildIcons() {
+  const box = $("#icons");
+  box.innerHTML = "";
+  DESK_ICONS.forEach(id => {
+    const a = APPS[id];
+    const n = el("button", "dicon", `<span class="glyph">${ico(a.icon)}</span><span>${esc(a.name)}</span>`);
+    let t = 0;
+    n.onclick = () => { const now = Date.now(); if (now - t < 420) launch(id); t = now; $$(".dicon").forEach(d => d.classList.toggle("sel", d === n)); };
+    n.ondblclick = () => launch(id);
+    n.oncontextmenu = e => { e.preventDefault(); showMenu(e.clientX, e.clientY, [{ label: "Open " + a.name, fn: () => launch(id) }]); };
+    box.appendChild(n);
+  });
+}
+
+/* ---- start menu ---- */
+function buildStart(filter = "") {
+  const list = $("#startlist");
+  list.innerHTML = "";
+  const q = filter.trim().toLowerCase();
+  const apps = Object.entries(APPS).filter(([id, a]) => !a.hidden && (!q || a.name.toLowerCase().includes(q) || a.desc.toLowerCase().includes(q)));
+  apps.forEach(([id, a]) => {
+    const b = el("button", "", `<span class="gl">${ico(a.icon)}</span><span><span class="nm">${esc(a.name)}</span><span class="ds">${esc(a.desc)}</span></span>`);
+    b.onclick = () => { launch(id); closeStart(); };
+    list.appendChild(b);
+  });
+  if (q) {
+    const hits = Object.keys(FS).filter(p => p !== "/" && basename(p).toLowerCase().includes(q)).slice(0, 6);
+    hits.forEach(p => {
+      const b = el("button", "", `<span class="gl">${ico(fileKind(p) === "folder" ? "folder" : fileKind(p) === "image" ? "image" : "text")}</span><span><span class="nm">${esc(basename(p))}</span><span class="ds">${esc(dirname(p))}</span></span>`);
+      b.onclick = () => { openPath(p); closeStart(); };
+      list.appendChild(b);
+    });
+    if (!apps.length && !hits.length) list.appendChild(el("div", "empty", "Nothing matches “" + esc(q) + "”."));
+  }
+}
+const startOpen = () => $("#start").classList.contains("open");
+function openStart() {
+  buildStart("");
+  $("#startsearch").value = "";
+  $("#start").classList.add("open");
+  setTimeout(() => $("#startsearch").focus(), 40);
+}
+function closeStart() { $("#start").classList.remove("open"); }
+function toggleStart() { startOpen() ? closeStart() : openStart(); }
+
+/* ---- context menu ---- */
+function showMenu(x, y, items) {
+  const m = $("#ctx");
+  m.innerHTML = "";
+  items.forEach(it => {
+    if (it.sep) return m.appendChild(el("hr"));
+    const b = el("button", "", `<span>${esc(it.label)}</span>${it.key ? `<kbd>${esc(it.key)}</kbd>` : ""}`);
+    b.onclick = () => { hideMenu(); it.fn(); };
+    m.appendChild(b);
+  });
+  m.classList.add("open");
+  const r = m.getBoundingClientRect();
+  m.style.left = Math.min(x, innerWidth - r.width - 8) + "px";
+  m.style.top = Math.min(y, innerHeight - r.height - 8) + "px";
+}
+const hideMenu = () => $("#ctx").classList.remove("open");
+
+/* ---- clock + lock ---- */
+function tickClock() {
+  const d = new Date();
+  const hm = pad2(d.getHours()) + ":" + pad2(d.getMinutes());
+  $("#trayclock").innerHTML = `<b>${hm}</b><small>${d.toLocaleDateString(undefined, { day: "numeric", month: "short" })}</small>`;
+  $("#lockclock").textContent = hm;
+  $("#lockdate").textContent = d.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" });
+}
+function lockScreen() { closeStart(); hideMenu(); $("#lock").classList.remove("gone"); }
+function unlockScreen() { $("#lock").classList.add("gone"); }
+
+/* ============================================================
+   16 · wiring
+   ============================================================ */
+$("#startbtn").onclick = e => { e.stopPropagation(); toggleStart(); };
+$("#startsearch").addEventListener("input", e => buildStart(e.target.value));
+$("#startsearch").addEventListener("keydown", e => {
+  if (e.key === "Enter") { const f = $("#startlist button"); if (f) f.click(); }
+  if (e.key === "Escape") closeStart();
+});
+$("#btnsettings").onclick = () => { launch("settings"); closeStart(); };
+$("#btnlock").onclick = lockScreen;
+$("#unlock").onclick = unlockScreen;
+$("#lock").addEventListener("keydown", e => { if (e.key === "Enter" || e.key === "Escape") unlockScreen(); });
+$("#trayclock").onclick = e => {
+  e.stopPropagation();
+  const d = new Date();
+  showMenu(e.clientX - 150, innerHeight - 130, [
+    { label: d.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long", year: "numeric" }), fn: () => {} },
+    { sep: 1 },
+    { label: "Lock screen", fn: lockScreen },
+    { label: "Settings", fn: () => launch("settings") }
+  ]);
+};
+
+document.addEventListener("pointerdown", e => {
+  if (!e.target.closest("#start") && !e.target.closest("#startbtn")) closeStart();
+  if (!e.target.closest("#ctx")) hideMenu();
+});
+$("#desktop").addEventListener("contextmenu", e => {
+  if (e.target.closest(".win") || e.target.closest(".dicon")) return;
+  e.preventDefault();
+  $$(".dicon").forEach(d => d.classList.remove("sel"));
+  showMenu(e.clientX, e.clientY, [
+    { label: "Open Terminal", key: "Ctrl Alt T", fn: () => launch("terminal") },
+    { label: "Open Files", fn: () => launch("files") },
+    { sep: 1 },
+    { label: "Next wallpaper", fn: () => { const i = WALLS.findIndex(w => w.id === cfg.wall); setWall(WALLS[(i + 1) % WALLS.length].id); } },
+    { label: cfg.theme === "dark" ? "Use light chrome" : "Use dark chrome", fn: () => setTheme(cfg.theme === "dark" ? "light" : "dark") },
+    { sep: 1 },
+    { label: "Settings", fn: () => launch("settings") },
+    { label: "About this machine", fn: () => launch("about") }
+  ]);
+});
+
+window.addEventListener("keydown", e => {
+  const typing = /input|textarea/i.test(e.target.tagName);
+  if (e.ctrlKey && e.code === "Space") { e.preventDefault(); toggleStart(); }
+  else if (e.ctrlKey && e.altKey && (e.key === "t" || e.key === "T")) { e.preventDefault(); launch("terminal"); }
+  else if (e.ctrlKey && (e.key === "w" || e.key === "W")) { if (focused) { e.preventDefault(); closeWindow(focused); } }
+  else if (e.altKey && e.key === "Tab") {
+    e.preventDefault();
+    const ids = [...wins.keys()];
+    if (ids.length) focus(ids[(ids.indexOf(focused) + 1) % ids.length]);
+  } else if (e.key === "Escape" && !typing) { closeStart(); hideMenu(); }
+});
+
+window.addEventListener("resize", () => {
+  const d = desk();
+  wins.forEach(w => {
+    if (w.max) Object.assign(w.node.style, { width: d.width + "px", height: d.height + "px", left: "0px", top: "0px" });
+    else {
+      const b = w.node.getBoundingClientRect();
+      if (b.left > d.width - 60) w.node.style.left = Math.max(0, d.width - b.width) + "px";
+      if (b.top > d.height - 40) w.node.style.top = Math.max(0, d.height - 60) + "px";
+    }
+  });
+});
+
+/* ============================================================
+   17 · boot
+   ============================================================ */
+async function boot() {
+  const log = $("#bootlog");
+  const had = await loadState();
+  if (!had || !FS["/"]) seedFS();
+  cfg.visits = (cfg.visits || 0) + 1;
+  applyCfg();
+  buildIcons();
+  tickClock();
+  setInterval(tickClock, 1000);
+  save();
+
+  const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const files = Object.values(FS).filter(f => f.t === "f").length;
+  const lines = [
+    ["memory", "64K nominal"],
+    ["storage", `memfs · ${files} files`],
+    ["display", `${innerWidth}×${innerHeight}`],
+    ["input", "pointer, keyboard"],
+    ["audio", "webaudio ready"],
+    ["network", "local loop only"],
+    ["session", "#" + cfg.visits]
+  ];
+  const gap = reduced ? 0 : 105;
+  lines.forEach(([k, v], i) => setTimeout(() => {
+    log.appendChild(el("div", "row", `<span>${k}</span><span class="dots">${".".repeat(40)}</span><span class="ok">${esc(v)}</span>`));
+  }, i * gap));
+
+  const total = lines.length * gap + (reduced ? 60 : 260);
+  setTimeout(() => {
+    log.appendChild(el("div", "row", `<span style="color:#f0a92c">starting kestrel os 1.0</span><span class="cur"></span>`));
+  }, total - (reduced ? 30 : 150));
+
+  setTimeout(() => {
+    $("#boot").classList.add("done");
+    setTimeout(() => $("#boot").remove(), 500);
+    if (cfg.visits === 1) {
+      setTimeout(() => {
+        launch("terminal");
+        launch("files");
+        toast("Welcome to Kestrel", "Right click the desktop for a menu");
+      }, 220);
+    }
+  }, total + (reduced ? 100 : 420));
+}
+boot();
+</script>
+</body>
+</html>
