@@ -2,7 +2,7 @@
 
 A small desktop environment that lives entirely in one HTML file. No server, no framework, no build step. Open the file in a browser and you get a window manager, a working shell, a code editor with live preview, a tabbed web browser, a persistent filesystem and a handful of apps, all written in plain JavaScript.
 
-Version 1.0, codename **falcon**.
+Version 2.0.
 
 ## Running it
 
