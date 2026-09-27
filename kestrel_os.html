@@ -431,18 +431,55 @@ html[data-theme="dark"] .page a{color:#6fd0dd;}
 .dpad button{border-radius:var(--r-ctl); display:grid; place-items:center;}
 
 /* ---------- studio (music) ---------- */
-.seq{padding:12px; overflow:auto; height:100%; background:var(--paper-2);}
-.track{display:flex; align-items:center; gap:7px; margin-bottom:6px;}
-.track .nm{width:52px; font-size:11px; font-family:var(--mono); color:var(--dim); flex:none;}
-.steps{display:flex; gap:3px;}
+.stu{display:flex; flex-direction:column; height:100%; background:var(--paper-2);}
+.stu .ctl svg{width:12px; height:12px; vertical-align:-1px;}
+.stu-play{min-width:78px; font-weight:600;}
+.stu-k{display:inline-flex; align-items:center; gap:6px; font-size:11px; color:var(--dim); white-space:nowrap;}
+.stu-k b{font:500 11px var(--mono); color:var(--ink); min-width:28px;}
+.stu input[type=range]{width:74px; accent-color:var(--amber); cursor:pointer;}
+.stu select.tb-in{padding:3px 6px; cursor:pointer;}
+.stu-bar{display:flex; align-items:center; gap:12px; padding:9px 12px 0; min-width:0;}
+.stu-bar .hint{overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0;}
+.stu-bar .sp, .stu-sound .sp{flex:1;}
+.stu-scope{width:96px; height:26px; flex:none; background:var(--field); border:1px solid var(--edge); border-radius:var(--r-chip);}
+.seg{display:inline-flex; flex:none;}
+.seg .ctl{border-radius:0; padding:4px 11px;}
+.seg .ctl + .ctl{margin-left:-1px;}
+.seg .ctl:first-child{border-radius:var(--r-ctl) 0 0 var(--r-ctl);}
+.seg .ctl:last-child{border-radius:0 var(--r-ctl) var(--r-ctl) 0;}
+.seg .ctl.on{position:relative; z-index:1;}
+.stu-main{flex:1; overflow:auto; padding:10px 12px 12px;}
+.stu-row{display:flex; align-items:center; gap:6px; margin-bottom:5px;}
+.stu-lbl{width:64px; flex:none; text-align:left; padding:3px 7px; border-radius:var(--r-chip); font:11px var(--mono); color:var(--dim); white-space:nowrap;}
+button.stu-lbl:hover{background:var(--shell); color:var(--ink);}
+.stu-m{width:22px; height:22px; flex:none; border-radius:var(--r-chip); border:1px solid var(--edge); background:var(--shell); font:700 10px var(--mono); color:var(--dim);}
+.stu-m.on{background:var(--stop); border-color:#9c3f34; color:#fff;}
+span.stu-m{visibility:hidden;}
+.stu-cells{display:flex; gap:3px; flex:none;}
+.stu-cells > :nth-child(4n+1):not(:first-child){margin-left:5px;}
+.stu-vol{flex:none;}
 .step{
   width:22px;height:26px;border-radius:var(--r-chip); flex:none;
+  display:grid; place-items:center; touch-action:none;
   background:var(--shell); border:1px solid var(--edge);
   box-shadow:0 1px 0 rgba(255,255,255,.4) inset;
 }
-.step.beat{background:var(--shell-lo);}
 .step.on{background:linear-gradient(180deg,#f6cd85,var(--amber)); border-color:#c9891f;}
+.step.acc::after{content:""; width:6px; height:6px; border-radius:50%; background:#fff; box-shadow:0 0 5px #fff;}
 .step.cur{outline:2px solid var(--go); outline-offset:1px;}
+.stu-row.muted .step.on, .stu-grid.muted .step.on{opacity:.35;}
+.stu-leds{margin-bottom:7px;}
+.stu-leds .led{width:22px; height:5px; flex:none; border-radius:3px; background:var(--shell-lo);}
+.stu-leds .led.cur{background:var(--amber); box-shadow:0 0 6px var(--amber);}
+.stu-roll .stu-row{margin-bottom:3px;}
+.stu-roll .step{height:19px;}
+.stu-roll .root .step:not(.on){background:var(--shell-lo);}
+.stu-roll.lead .step.on{background:linear-gradient(180deg,#9fd6ea,#2f7fa8); border-color:#236484;}
+.stu-sound{display:flex; flex-wrap:wrap; align-items:center; gap:8px 16px; padding:8px 12px; border-top:1px solid var(--edge); background:linear-gradient(180deg,var(--shell-hi),var(--shell));}
+.stu-sound[hidden]{display:none;}
+.stu-sound{gap:8px 12px;}
+.stu-sound input[type=range]{width:58px;}
+.stu-sound .seg .ctl{padding:4px 9px;}
 
 /* ============================================================
    START MENU · MENUS · TOASTS
@@ -801,6 +838,7 @@ const ICONS = {
   fwd:      '<path d="M9 5l7 7-7 7"/>',
   up:       '<path d="M12 19V5M5 12l7-7 7 7"/>',
   down:     '<path d="M12 5v14M5 12l7 7 7-7"/>',
+  chev:     '<path d="M6 9l6 6 6-6"/>',
   left:     '<path d="M19 12H5M12 5l-7 7 7 7"/>',
   right:    '<path d="M5 12h14M12 5l7 7-7 7"/>',
   play:     '<path d="M7 4.5l12 7.5-12 7.5z"/>',
@@ -830,6 +868,7 @@ const DEFAULT_CFG = {
   hist: [],
   bookmarks: null,
   bhist: [],
+  studio: null,
   seed: 0
 };
 let cfg = { ...DEFAULT_CFG };
@@ -846,13 +885,20 @@ const store = {
     localStorage.setItem(KEY, v);
   }
 };
-let saveTimer = null;
+let saveTimer = null, saveWarned = false;
+async function writeState() {
+  try { await store.set(JSON.stringify({ cfg, FS })); }
+  catch (e) {
+    // usually a full quota (big pictures) or blocked storage; say so once instead of losing work silently
+    if (!saveWarned) { saveWarned = true; toast("Couldn't save", "Browser storage is full or blocked, so recent changes won't survive a reload."); }
+  }
+}
 function save() {
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(async () => {
-    try { await store.set(JSON.stringify({ cfg, FS })); } catch (e) { /* session only */ }
-  }, 400);
+  saveTimer = setTimeout(() => { saveTimer = null; writeState(); }, 400);
 }
+// don't drop the last few hundred ms of changes when the tab closes or reloads
+addEventListener("pagehide", () => { if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; writeState(); } });
 // arrays in cfg must never be shared with DEFAULT_CFG, and old saves may not have them at all
 function normCfg() {
   cfg.hist = Array.isArray(cfg.hist) ? cfg.hist.slice(-500) : [];
@@ -901,7 +947,7 @@ const dirname  = p => p === "/" ? "/" : (p.slice(0, p.lastIndexOf("/")) || "/");
 const basename = p => p === "/" ? "/" : p.slice(p.lastIndexOf("/") + 1);
 const join     = (dir, name) => dir === "/" ? "/" + name : dir + "/" + name;
 const exists   = p => !!FS[p];
-const isDir    = p => FS[p] && FS[p].t === "d";
+const isDir    = p => !!FS[p] && FS[p].t === "d";
 const childrenOf = p => Object.keys(FS)
   .filter(k => k !== "/" && dirname(k) === p)
   .sort((a, b) => (isDir(b) - isDir(a)) || basename(a).localeCompare(basename(b)));
@@ -923,15 +969,17 @@ function writeFile(p, content, kind = "txt") {
   return p;
 }
 const readFile = p => (FS[p] && FS[p].t === "f") ? FS[p].c : null;
+// "/", the home folder and everything above it can't be removed or moved
+const vital = p => p === "/" || p === HOME || HOME.startsWith(p + "/");
 function rm(p) {
-  if (p === "/" || p === HOME) return false;
+  if (vital(p)) return false;
   Object.keys(FS).forEach(k => { if (k === p || k.startsWith(p + "/")) delete FS[k]; });
   save();
   return true;
 }
 function moveTo(from, to) {
   to = norm(to);
-  if (!exists(from) || from === "/" || from === HOME) return false;
+  if (!exists(from) || vital(from)) return false;
   if (to === from || to.startsWith(from + "/") || exists(to) || !isDir(dirname(to))) return false;
   const keys = Object.keys(FS).filter(k => k === from || k.startsWith(from + "/"));
   keys.forEach(k => { FS[to + k.slice(from.length)] = FS[k]; delete FS[k]; });
@@ -1007,7 +1055,9 @@ function toast(title, msg) {
   setTimeout(() => { t.classList.add("out"); setTimeout(() => t.remove(), 260); }, 3200);
 }
 
+let askDone = null;
 function ask({ title, msg = "", value = "", ok = "OK", input = true }) {
+  if (askDone) askDone(null);     // a newer dialog replaces (and cancels) an open one
   return new Promise(res => {
     const m = $("#modal");
     $("#mtitle").textContent = title;
@@ -1019,10 +1069,12 @@ function ask({ title, msg = "", value = "", ok = "OK", input = true }) {
     $("#mok").textContent = ok;
     m.classList.add("open");
     setTimeout(() => input ? inp.focus() : $("#mok").focus(), 30);
-    const done = v => { m.classList.remove("open"); cleanup(); res(v); };
+    const done = v => { m.classList.remove("open"); cleanup(); askDone = null; res(v); };
+    askDone = done;
     const onOk = () => done(input ? inp.value : true);
     const onNo = () => done(null);
-    const onKey = e => { if (e.key === "Enter") onOk(); if (e.key === "Escape") onNo(); };
+    // Enter on a focused button presses that button (so Cancel stays Cancel)
+    const onKey = e => { if (e.key === "Enter" && e.target.tagName !== "BUTTON") onOk(); if (e.key === "Escape") onNo(); };
     function cleanup() {
       $("#mok").removeEventListener("click", onOk);
       $("#mcancel").removeEventListener("click", onNo);
@@ -1275,6 +1327,7 @@ function openPath(p) {
   if (!exists(p)) return toast("Not found", p);
   if (isDir(p)) return launch("files", p);
   if (fileKind(p) === "image") return launch("viewer", p);
+  if (extOf(p) === "beat") return launch("studio", p);
   return launch(CODE_EXT.has(extOf(p)) ? "code" : "editor", p);
 }
 
@@ -2291,7 +2344,7 @@ const KSH = (() => {
         if (p) c.out(`total ${items.length}\n`, "mut");
         items.forEach((k, i) => {
           const d = isDir(k);
-          c.out(`${d ? "d" : "-"}rw-r--r--  ${cfg.user.padEnd(9)} ${(f.h ? human(sizeOf(k)) : String(sizeOf(k))).padStart(7)}  ${stamp(FS[k].m)}  `, "mut");
+          c.out(`${d ? "drwxr-xr-x" : "-rw-r--r--"}  ${cfg.user.padEnd(9)} ${(f.h ? human(sizeOf(k)) : String(sizeOf(k))).padStart(7)}  ${stamp(FS[k].m)}  `, "mut");
           c.out(label(k, i) + (d ? "/" : ""), d ? "p" : ""); c.out("\n");
         });
       } else if (!c.tty || f["1"]) items.forEach((k, i) => c.out(label(k, i) + "\n"));
@@ -2497,7 +2550,8 @@ const KSH = (() => {
         count++; any = true;
         if (f.l || f.c) { if (f.l) break; continue; }
         const lead = () => { if (named && name) c.out(name + ":", "ok"); if (f.n) c.out((i + 1) + ":", "mut"); };
-        if (f.o && !f.v) { for (const m of l.matchAll(re)) if (m[0]) { lead(); c.out(m[0], c.tty ? "hl" : ""); c.out("\n"); } continue; }
+        // test() left lastIndex past the first hit, and matchAll starts from there
+        if (f.o && !f.v) { re.lastIndex = 0; for (const m of l.matchAll(re)) if (m[0]) { lead(); c.out(m[0], c.tty ? "hl" : ""); c.out("\n"); } continue; }
         lead();
         if (f.v || !c.tty) { c.out(l + "\n"); continue; }
         let last = 0;
@@ -2599,9 +2653,12 @@ const KSH = (() => {
     const t = c.stdin ?? "";
     const s1 = trChars(a[0] || "");
     if (f.d) { c.out([...t].filter(ch => !s1.includes(ch)).join("")); return; }
-    const s2 = trChars(a[1] || "");
-    let out = [...t].map(ch => { const i = s1.indexOf(ch); return i < 0 ? ch : s2[Math.min(i, s2.length - 1)] ?? ""; }).join("");
-    if (f.s) out = out.replace(new RegExp(`([${escRe(s2)}])\\1+`, "g"), "$1");
+    if (a.length < 2 && !f.s) { c.err("tr: missing SET2\n"); return 1; }
+    // with -s and one set, squeeze SET1 and translate nothing
+    const s2 = a.length > 1 ? trChars(a[1]) : null;
+    let out = s2 == null ? t : [...t].map(ch => { const i = s1.indexOf(ch); return i < 0 ? ch : s2[Math.min(i, s2.length - 1)] ?? ""; }).join("");
+    const sq = s2 ?? s1;
+    if (f.s && sq) out = out.replace(new RegExp(`([${sq.replace(/[\]\\^-]/g, "\\$&")}])\\1+`, "g"), "$1");
     c.out(out);
   });
   def("sed", "text", "sed [-e] 's/find/replace/g' | '/pattern/d' | 'Np' [file]", "edit a stream of text", c => {
@@ -2665,7 +2722,8 @@ const KSH = (() => {
     const t = c.input(files); if (t == null) return 1;
     let v;
     try { v = JSON.parse(t); } catch (e) { c.err(`json: ${e.message}\n`); return 1; }
-    for (const k of (paths[0] || ".").split(".").filter(Boolean)) {
+    // .a.1.b and jq-style .a[1].b both work
+    for (const k of (paths[0] || ".").replace(/\[(\d+)\]/g, ".$1").split(".").filter(Boolean)) {
       if (v == null) break;
       v = k === "length" && Array.isArray(v) ? v.length : k === "keys" && typeof v === "object" ? Object.keys(v) : v[/^\d+$/.test(k) && Array.isArray(v) ? +k : k];
     }
@@ -2741,7 +2799,8 @@ const KSH = (() => {
     if (isDir(p)) launch("code", p); else if (FS[p].k === "img") launch("viewer", p); else launch("code", p);
   });
   def("sh ksh bash", "code", "sh file [args] | sh -c 'commands'", "run a shell script in a subshell", async c => {
-    if (c.args[0] === "-c") return c.sh.subshell(() => c.sh.runSource(c.args.slice(1).join(" "), c));
+    // exit ends the subshell, not the terminal
+    if (c.args[0] === "-c") return c.sh.subshell(() => c.sh.runSource(c.args.slice(1).join(" "), c).catch(e => { if (e instanceof Exit) return e.code; throw e; }));
     if (!c.args[0]) { c.err("sh: name a script\n"); return 1; }
     const p = c.path(c.args[0]);
     if (!exists(p) || isDir(p)) { c.err(`sh: ${c.args[0]}: no such file\n`); return 127; }
@@ -3039,27 +3098,35 @@ const KSH = (() => {
       runSource(src, c) { return exec(src.replace(/^#![^\n]*\n/, ""), { stdin: c ? c.stdinObj : null, out: c ? c.rawOut : io.print, err: c ? c.rawErr : io.printErr, tty: c ? c.tty : true }, c ? c.job : sh.job); }
     };
 
-    async function expandWord(w, job) {
-      let s = "", glob = false, quoted = false, dynamic = false;
+    // unquoted $VAR / $(cmd) results split on whitespace into separate words, like sh; split=false keeps one word
+    async function expandWord(w, job, split = true) {
+      const fields = [];
+      let cur = null;
+      const piece = () => cur ||= { s: "", glob: false };
+      const cut = () => { if (cur) { fields.push(cur); cur = null; } };
       for (const x of w.segs) {
-        if (x.q) quoted = true;
-        if (x.t === "lit") { s += x.v; if (!x.q && /[*?[]/.test(x.v)) glob = true; }
-        else if (x.t === "tilde") s += HOME;
-        else if (x.t === "var") { dynamic = true; const v = sh.getVar(x.name); s += v === "" && x.def != null ? x.def : v; }
-        else if (x.t === "sub") { dynamic = true; s += (await capture(x.src, job)).replace(/\n+$/, ""); }
+        let v;
+        if (x.t === "lit") { piece().s += x.v; if (!x.q && /[*?[]/.test(x.v)) cur.glob = true; continue; }
+        if (x.t === "tilde") { piece().s += HOME; continue; }
+        if (x.t === "var") { const g = sh.getVar(x.name); v = g === "" && x.def != null ? x.def : g; }
+        else if (x.t === "sub") v = (await capture(x.src, job)).replace(/\n+$/, "");
         else if (x.t === "arith") {
-          dynamic = true;
           const src = x.src.replace(/\$\{?(\w+)\}?/g, (_, n) => sh.getVar(n) || "0");
-          s += String(Math.trunc(calc(src, vars, true)));
+          const n = calc(src, vars, true);
+          if (!Number.isFinite(n)) throw new Error("division by zero");
+          v = String(Math.trunc(n));
         }
+        if (x.q || !split) piece().s += v;
+        else v.split(/[ \t\n]+/).forEach((part, i) => { if (i) cut(); if (part) piece().s += part; });
       }
-      if (glob) {
-        const hits = globExpand(s);
-        if (hits.length) return hits;
-      }
-      if (s === "" && dynamic && !quoted) return [];
-      return [s];
+      cut();
+      return fields.flatMap(f => {
+        if (f.glob) { const hits = globExpand(f.s); if (hits.length) return hits; }
+        return [f.s];
+      });
     }
+    // NAME=value words at the front of a command are assignments and never split
+    const isAssign = w => { let p = ""; for (const x of w.segs) { if (x.t !== "lit" || x.q) break; p += x.v; if (x.v === "=") break; } return /^[A-Za-z_]\w*=$/.test(p); };
     function globExpand(pat) {
       const i = pat.lastIndexOf("/");
       const dirPart = i >= 0 ? pat.slice(0, i + 1) : "", namePat = pat.slice(i + 1);
@@ -3072,7 +3139,9 @@ const KSH = (() => {
     }
     async function capture(src, job) {
       let buf = "";
-      await exec(src, { stdin: null, out: t => { buf += t; }, err: io.printErr, tty: false }, job);
+      // $(…) is a subshell, so exit inside it only ends the substitution
+      try { await sh.subshell(() => exec(src, { stdin: null, out: t => { buf += t; }, err: io.printErr, tty: false }, job)); }
+      catch (e) { if (!(e instanceof Exit)) throw e; }
       return buf;
     }
     const mkIn = text => text == null ? null : { text, pos: 0 };
@@ -3150,7 +3219,7 @@ const KSH = (() => {
       let stdin = ioc.stdin, outFile = null, append = false, errFile = null, errAppend = false, merge = false;
       for (const r of node.redirs) {
         if (r.op === "2>&1") { merge = true; continue; }
-        const target = (await expandWord(r.word, job))[0] || "";
+        const target = (await expandWord(r.word, job, false))[0] || "";
         const p = resolve(target, cwd);
         if (r.op === "<") {
           const t = readFile(p);
@@ -3173,7 +3242,8 @@ const KSH = (() => {
       if (job.dead) return 130;
       if (node.k === "simple") {
         const argv = [];
-        for (const w of node.words) argv.push(...await expandWord(w, job));
+        let lead = true;
+        for (const w of node.words) { lead = lead && isAssign(w); argv.push(...await expandWord(w, job, !lead)); }
         return withRedirs(node, ioc, job, x => runArgv(argv, makeCtx(argv, x, job)));
       }
       return withRedirs(node, ioc, job, async x => {
@@ -3524,13 +3594,15 @@ APPS.files = {
       const target = sel;
       const v = cleanName(await ask({ title: "Rename", value: basename(target) }));
       if (!v || v === basename(target)) return;
-      if (!moveTo(target, join(dirname(target), v))) return toast("Can't rename", `"${v}" already exists here`);
+      if (!moveTo(target, join(dirname(target), v))) return toast("Can't rename", exists(join(dirname(target), v)) ? `"${v}" already exists here` : basename(target) + " can't be renamed");
       sel = null; refreshFiles();
     }
     async function del() {
       if (!sel) return toast("Nothing selected", "Pick an item first");
       const ok = await ask({ title: "Delete " + basename(sel) + "?", msg: "This cannot be undone.", input: false, ok: "Delete" });
-      if (ok) { rm(sel); sel = null; refreshFiles(); toast("Deleted"); }
+      if (!ok) return;
+      if (!rm(sel)) return toast("Can't delete", basename(sel) + " holds the home folder");
+      sel = null; refreshFiles(); toast("Deleted");
     }
     $$("[data-go]", body).forEach(b => b.onclick = () => go(b.dataset.go));
     $$(".toolbar .ctl", body).forEach(b => b.onclick = async () => {
@@ -3790,6 +3862,7 @@ APPS.code = {
       refreshFiles(); syncTabs(); syncStatus();
     }
     async function deletePath(p) {
+      if (vital(p)) return toast("Can't delete", basename(p) + " holds the home folder");
       const ok = await ask({ title: `Delete ${basename(p)}?`, msg: isDir(p) ? "The folder and everything in it will go." : "This can't be undone.", input: false, ok: "Delete" });
       if (!ok) return;
       tabs.filter(t => t.path === p || t.path.startsWith(p + "/")).forEach(t => closeTab(t, true));
@@ -4161,23 +4234,26 @@ APPS.calc = {
     </div>`;
     const big = $(".big", body), sm = $(".sm", body);
     let acc = null, op = null, cur = "0", fresh = true;
-    const show = () => { big.textContent = cur.length > 12 ? Number(cur).toPrecision(9) : cur; sm.textContent = acc !== null ? `${acc} ${op || ""}` : ""; };
+    // round away float noise (0.1 + 0.2) and squeeze long numbers into the readout
+    const tidy = r => Number.isFinite(r) ? String(+r.toPrecision(12)) : "undefined";
+    const fit = s => { if (s.length <= 12 || !Number.isFinite(+s)) return s; const t = String(+Number(s).toPrecision(9)); return t.length <= 12 ? t : Number(s).toExponential(5).replace(/\.?0+e/, "e"); };
+    const show = () => { big.textContent = fit(cur); sm.textContent = acc !== null ? `${fit(tidy(acc))} ${op || ""}` : ""; };
     const calcOp = (a, b, o) => o === "+" ? a + b : o === "−" ? a - b : o === "×" ? a * b : o === "÷" ? (b === 0 ? NaN : a / b) : b;
     function press(k) {
-      if (/[0-9]/.test(k)) { cur = fresh ? k : (cur === "0" ? k : cur + k); fresh = false; }
+      if (/[0-9]/.test(k)) { if (!fresh && cur.replace(/\D/g, "").length >= 15) return; cur = fresh ? k : (cur === "0" ? k : cur + k); fresh = false; }
       else if (k === ".") { if (fresh) { cur = "0."; fresh = false; } else if (!cur.includes(".")) cur += "."; }
       else if (k === "C") { acc = null; op = null; cur = "0"; fresh = true; }
       else if (k === "⌫") { cur = cur.length > 1 ? cur.slice(0, -1) : "0"; }
-      else if (k === "±") { cur = cur.startsWith("-") ? cur.slice(1) : "-" + cur; }
-      else if (k === "%") { cur = String(parseFloat(cur) / 100); }
+      else if (k === "±") { if (Number(cur)) cur = cur.startsWith("-") ? cur.slice(1) : "-" + cur; }
+      else if (k === "%") { cur = tidy(parseFloat(cur) / 100); }
       else if ("+−×÷".includes(k)) {
         if (acc !== null && op && !fresh) acc = calcOp(acc, parseFloat(cur), op);
         else acc = parseFloat(cur);
-        op = k; fresh = true; cur = String(acc);
+        op = k; fresh = true; cur = tidy(acc);
       } else if (k === "=") {
         if (op !== null && acc !== null) {
           const r = calcOp(acc, parseFloat(cur), op);
-          cur = Number.isFinite(r) ? String(Math.round(r * 1e10) / 1e10) : "undefined";
+          cur = tidy(r);
           acc = null; op = null; fresh = true;
         }
       }
@@ -4255,7 +4331,7 @@ APPS.paint = {
    ============================================================ */
 const SEARCH_URL = "https://www.google.com/search?igu=1&q=";
 // these send X-Frame-Options / frame-ancestors, so a frame would only ever show an error
-const NO_FRAME = /(^|\.)(github\.com|stackoverflow\.com|reddit\.com|x\.com|twitter\.com|facebook\.com|instagram\.com|linkedin\.com|duckduckgo\.com|news\.ycombinator\.com|developer\.mozilla\.org|claude\.ai|chatgpt\.com|openai\.com|apple\.com|nytimes\.com|netflix\.com|mail\.google\.com|docs\.google\.com|drive\.google\.com)$/i;
+const NO_FRAME = /(^|\.)(github\.com|stackoverflow\.com|reddit\.com|youtube\.com|x\.com|twitter\.com|facebook\.com|instagram\.com|linkedin\.com|duckduckgo\.com|news\.ycombinator\.com|developer\.mozilla\.org|claude\.ai|chatgpt\.com|openai\.com|apple\.com|nytimes\.com|netflix\.com|mail\.google\.com|docs\.google\.com|drive\.google\.com)$/i;
 // known to be happy inside a frame, so no warning strip
 const FRAMES_OK = /(^|\.)(wikipedia\.org|google\.com|archive\.org|openlibrary\.org|npr\.org|wiby\.me|example\.com|youtube\.com|bing\.com)$/i;
 const DEFAULT_BOOKMARKS = [
@@ -4283,7 +4359,8 @@ function toURL(input) {
       const host = u.hostname.replace(/^www\./, "");
       // YouTube pages refuse frames but the embed player doesn't
       let m;
-      if (host === "youtube.com" && u.pathname === "/watch" && (m = u.searchParams.get("v"))) return "https://www.youtube.com/embed/" + m;
+      if (/^(m\.)?youtube\.com$/.test(host) && u.pathname === "/watch" && (m = u.searchParams.get("v"))) return "https://www.youtube.com/embed/" + m;
+      if (/^(m\.)?youtube\.com$/.test(host) && (m = /^\/(?:shorts|live)\/([\w-]+)/.exec(u.pathname))) return "https://www.youtube.com/embed/" + m[1];
       if (host === "youtu.be" && (m = u.pathname.slice(1))) return "https://www.youtube.com/embed/" + m;
       // google.com only allows frames with igu=1
       if (/^google\.[a-z.]+$/.test(host) && !u.searchParams.has("igu")) {
@@ -4525,7 +4602,11 @@ APPS.browser = {
             <div class="acts"><button class="ctl" data-act="ext" style="font-weight:600">Open ${esc(host)} in a new tab ${ico("ext", "")}</button><button class="ctl" data-go="kestrel://home">Go home</button></div></div></div>`;
           wireInternal(t, t.pane);
         } else {
-          const note = FRAMES_OK.test(host) ? null : el("div", "bw-note", `<span>If this stays blank, ${esc(host)} doesn't allow being shown inside other pages.</span><button data-act="ext">Open in new tab ${ico("ext", "")}</button><button data-act="hide" title="Hide">✕</button>`);
+          // the YouTube player refuses to start without a Referer, and file:// pages never send one (Error 153)
+          const ytLocal = /youtube\.com\/embed\//.test(url) && location.protocol === "file:";
+          const msg = ytLocal ? `YouTube won't play videos for a page opened as a file. Serve Kestrel over http (e.g. <code>python3 -m http.server</code>) or watch it in a real tab.`
+            : `If this stays blank, ${esc(host)} doesn't allow being shown inside other pages.`;
+          const note = FRAMES_OK.test(host) && !ytLocal ? null : el("div", "bw-note", `<span>${msg}</span><button data-act="ext">Open in new tab ${ico("ext", "")}</button><button data-act="hide" title="Hide">✕</button>`);
           if (note) {
             $('[data-act="ext"]', note).onclick = () => openExternal(t);
             $('[data-act="hide"]', note).onclick = () => note.remove();
@@ -4581,7 +4662,7 @@ APPS.browser = {
         setTimeout(() => URL.revokeObjectURL(u), 60000);
         return;
       }
-      window.open(t.url, "_blank", "noopener");
+      window.open(t.url.replace(/^https:\/\/www\.youtube\.com\/embed\//, "https://www.youtube.com/watch?v="), "_blank", "noopener");
     }
 
     $$(".toolbar [data-a]", body).forEach(b => b.onclick = () => {
@@ -4811,107 +4892,549 @@ APPS.snake = {
 };
 
 /* ============================================================
-   13 · Studio  (step sequencer, Web Audio)
+   13 · Studio  (drum machine + bass and lead synths, Web Audio, no samples)
    ============================================================ */
+const STU_STEPS = 16, STU_ROWS = 8;
+const STU_DRUMS = [
+  { id: "kick", nm: "Kick" }, { id: "snare", nm: "Snare" }, { id: "clap", nm: "Clap" },
+  { id: "hat", nm: "Hat" }, { id: "open", nm: "Open hat" }, { id: "tom", nm: "Tom" }
+];
+const STU_CH = [...STU_DRUMS.map(d => d.id), "bass", "lead"];
+const STU_SCALES = {
+  minor: { nm: "minor", steps: [0, 2, 3, 5, 7, 8, 10] },
+  major: { nm: "major", steps: [0, 2, 4, 5, 7, 9, 11] },
+  dorian: { nm: "dorian", steps: [0, 2, 3, 5, 7, 9, 10] },
+  penta: { nm: "pentatonic", steps: [0, 3, 5, 7, 10] },
+  blues: { nm: "blues", steps: [0, 3, 5, 6, 7, 10] }
+};
+const STU_NOTES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+const STU_WAVES = [["sawtooth", "Saw"], ["square", "Square"], ["triangle", "Tri"], ["sine", "Sine"]];
+const STU_VOL = { kick: .9, snare: .75, clap: .7, hat: .55, open: .5, tom: .7, bass: .8, lead: .6 };
+const STU_PAN = { hat: .25, open: .3, tom: -.2, clap: -.1 };
+const STU_VERB = { snare: .2, clap: .3, open: .1, tom: .18, lead: .22 };
+// drums: "x" accent, "o" hit, "." rest · melody: scale degree 0–7 (7 is the octave), "." rest
+const STU_PRESETS = [
+  { name: "Night drive", bpm: 108, swing: 0, key: 9, scale: "minor",
+    drums: { kick: "x...o...x...o...", snare: "....o.......o.o.", hat: "o.o.o.o.o.o.o.oo" },
+    bass: "0...4...0.4.....", lead: "..2...2...6..26.",
+    synth: { bass: { wave: "square", cutoff: .5, reso: .2, len: .45 }, lead: { wave: "triangle", cutoff: .7, reso: .1, len: .35, echo: .3 } } },
+  { name: "Four on the floor", bpm: 124, swing: 8, key: 5, scale: "minor",
+    drums: { kick: "x...o...x...o...", clap: "....o.......o...", hat: "...o...o...o...o", open: "..o...o...o...o." },
+    bass: "..0...0...3...4.", lead: ".......4......2.",
+    synth: { bass: { wave: "sawtooth", cutoff: .38, reso: .35, len: .35 }, lead: { wave: "square", cutoff: .5, reso: .2, len: .2, echo: .45 } } },
+  { name: "Boom bap", bpm: 90, swing: 40, key: 2, scale: "dorian",
+    drums: { kick: "x......o..o.....", snare: "....x.......x...", hat: "o.o.o.o.o.o.o...", open: "..............o." },
+    bass: "0......0..3.....", lead: ".......7......4.",
+    synth: { bass: { wave: "triangle", cutoff: .3, reso: .1, len: .7 }, lead: { wave: "triangle", cutoff: .45, reso: .1, len: .5, echo: .35 } } },
+  { name: "Acid line", bpm: 128, swing: 0, key: 4, scale: "minor",
+    drums: { kick: "x...o...x...o...", clap: "....o.......o...", hat: "..o...o...o...o.", tom: "..............o." },
+    bass: "00.70.3.0.07.5.3", lead: "................",
+    synth: { bass: { wave: "sawtooth", cutoff: .45, reso: .8, len: .3 }, lead: { wave: "square", cutoff: .5, reso: .2, len: .4, echo: .3 } } }
+];
+
+function stuBlank() {
+  const row = v => Array(STU_STEPS).fill(v);
+  return {
+    v: 1, name: "untitled beat", bpm: 110, swing: 0, key: 0, scale: "minor",
+    drums: Object.fromEntries(STU_DRUMS.map(d => [d.id, row(0)])),
+    bass: row(-1), lead: row(-1),
+    mix: Object.fromEntries(STU_CH.map(id => [id, { vol: STU_VOL[id], mute: false }])),
+    synth: { bass: { wave: "sawtooth", cutoff: .4, reso: .4, len: .45 }, lead: { wave: "square", cutoff: .55, reso: .15, len: .4, echo: .3 } }
+  };
+}
+function stuPreset(p) {
+  const s = stuBlank();
+  Object.assign(s, { name: p.name, bpm: p.bpm, swing: p.swing, key: p.key, scale: p.scale });
+  Object.entries(p.drums).forEach(([id, str]) => { s.drums[id] = [...str].map(c => c === "x" ? 2 : c === "o" ? 1 : 0); });
+  ["bass", "lead"].forEach(k => { s[k] = [...p[k]].map(c => /\d/.test(c) ? +c : -1); });
+  Object.assign(s.synth.bass, p.synth.bass); Object.assign(s.synth.lead, p.synth.lead);
+  return s;
+}
+// accept anything that looks like a beat (saved state, a .beat file someone edited) and repair it
+function stuNorm(x) {
+  if (!x || typeof x !== "object" || !(x.drums || x.bass || x.lead)) return null;
+  const s = stuBlank();
+  const num = (v, lo, hi, d) => typeof v === "number" && Number.isFinite(v) ? clamp(v, lo, hi) : d;
+  const lane = (a, ok, off) => Array.from({ length: STU_STEPS }, (_, i) => Array.isArray(a) && ok(a[i]) ? a[i] : off);
+  if (typeof x.name === "string" && x.name.trim()) s.name = x.name.trim().slice(0, 40);
+  s.bpm = Math.round(num(x.bpm, 60, 180, s.bpm));
+  s.swing = Math.round(num(x.swing, 0, 66, 0));
+  s.key = Math.round(num(x.key, 0, 11, 0));
+  if (STU_SCALES[x.scale]) s.scale = x.scale;
+  STU_DRUMS.forEach(d => { s.drums[d.id] = lane(x.drums && x.drums[d.id], v => v === 1 || v === 2, 0); });
+  ["bass", "lead"].forEach(k => { s[k] = lane(x[k], v => Number.isInteger(v) && v >= 0 && v < STU_ROWS, -1); });
+  STU_CH.forEach(id => { const m = x.mix && x.mix[id]; if (m) s.mix[id] = { vol: num(m.vol, 0, 1, STU_VOL[id]), mute: !!m.mute }; });
+  ["bass", "lead"].forEach(k => {
+    const p = x.synth && x.synth[k], t = s.synth[k];
+    if (!p) return;
+    if (STU_WAVES.some(w => w[0] === p.wave)) t.wave = p.wave;
+    Object.keys(t).forEach(n => { if (n !== "wave") t[n] = num(p[n], 0, 1, t[n]); });
+  });
+  s.edited = !!x.edited;
+  return s;
+}
+// pretty JSON, but each 16-step lane stays on one line
+const stuSerialize = s => { const { edited, ...d } = s; return JSON.stringify(d, null, 2).replace(/\[\s+([^[\]{}]*?)\s+\]/g, (_, a) => "[" + a.replace(/\s+/g, "") + "]") + "\n"; };
+const stuMidi = (s, part, deg) => { const sc = STU_SCALES[s.scale].steps; return (part === "bass" ? 36 : 60) + s.key + sc[deg % sc.length] + 12 * Math.floor(deg / sc.length); };
+const stuName = m => STU_NOTES[m % 12] + (Math.floor(m / 12) - 1);
+const stuHz = m => 440 * 2 ** ((m - 69) / 12);
+
+/* ---- the rig: channel strips → reverb / echo sends → compressor → speakers.
+   It takes any context, so Export renders offline with exactly the same sound. ---- */
+function stuRig(ctx, live) {
+  const R = { ctx, open: null, ch: {} };
+  const out = ctx.createGain(), comp = ctx.createDynamicsCompressor();
+  out.gain.value = .75;
+  comp.threshold.value = -14; comp.knee.value = 10; comp.ratio.value = 4; comp.attack.value = .003; comp.release.value = .2;
+  out.connect(comp).connect(ctx.destination);
+  if (live) { R.scope = ctx.createAnalyser(); R.scope.fftSize = 2048; comp.connect(R.scope); }
+  const sr = ctx.sampleRate, nb = ctx.createBuffer(1, sr, sr), nd = nb.getChannelData(0);
+  for (let i = 0; i < sr; i++) nd[i] = Math.random() * 2 - 1;
+  R.noise = nb;
+  // a small room: decaying stereo noise as the impulse response
+  const len = Math.floor(sr * 1.6), ir = ctx.createBuffer(2, len, sr);
+  for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len) ** 3; }
+  const verb = ctx.createConvolver(); verb.buffer = ir; verb.connect(out);
+  // tempo-synced echo, darker on every repeat
+  const echoIn = ctx.createGain(), delay = ctx.createDelay(2), fb = ctx.createGain(), tone = ctx.createBiquadFilter();
+  tone.type = "lowpass"; tone.frequency.value = 2400; fb.gain.value = .38;
+  echoIn.connect(delay).connect(tone).connect(fb).connect(delay);
+  tone.connect(out);
+  R.delay = delay;
+  STU_CH.forEach(id => {
+    const g = ctx.createGain();
+    let tail = g;
+    if (STU_PAN[id] && ctx.createStereoPanner) { tail = ctx.createStereoPanner(); tail.pan.value = STU_PAN[id]; g.connect(tail); }
+    tail.connect(out);
+    if (STU_VERB[id]) { const s = ctx.createGain(); s.gain.value = STU_VERB[id]; tail.connect(s).connect(verb); }
+    R.ch[id] = { in: g };
+    if (id === "lead") { const e = ctx.createGain(); tail.connect(e).connect(echoIn); R.ch[id].echo = e; }
+  });
+  return R;
+}
+// push volumes, mutes, echo amount and echo time (a dotted eighth) into the rig
+function stuMix(R, s, instant) {
+  const t = R.ctx.currentTime, set = (p, v) => instant ? p.setValueAtTime(v, 0) : p.setTargetAtTime(v, t, .02);
+  STU_CH.forEach(id => set(R.ch[id].in.gain, s.mix[id].mute ? 0 : s.mix[id].vol));
+  set(R.ch.lead.echo.gain, s.synth.lead.echo * .8);
+  set(R.delay.delayTime, 3 * 60 / s.bpm / 4);
+}
+
+/* ---- voices ---- */
+function stuFall(param, t, peak, len) { param.setValueAtTime(peak, t); param.exponentialRampToValueAtTime(.0001, t + len); }
+function stuFilter(R, type, freq, q) { const f = R.ctx.createBiquadFilter(); f.type = type; f.frequency.value = freq; if (q != null) f.Q.value = q; return f; }
+function stuNoise(R, t, len, dest) { const s = R.ctx.createBufferSource(); s.buffer = R.noise; s.connect(dest); s.start(t, Math.random() * .4); s.stop(t + len); }
+// six detuned square waves through a band-pass: the 808 hi-hat recipe
+function stuMetal(R, t, peak, len, out) {
+  const c = R.ctx, g = c.createGain(), bp = stuFilter(R, "bandpass", 10000, .7), hp = stuFilter(R, "highpass", 7000);
+  stuFall(g.gain, t, peak, len);
+  bp.connect(hp).connect(g).connect(out);
+  for (const r of [2, 3, 4.16, 5.43, 6.79, 8.21]) { const o = c.createOscillator(); o.type = "square"; o.frequency.value = 40 * r; o.connect(bp); o.start(t); o.stop(t + len + .02); }
+  return g;
+}
+// a closed hat cuts off a ringing open hat, like on a real kit
+function stuChoke(R, t) {
+  const o = R.open; R.open = null;
+  if (!o || o.end <= t) return;
+  const p = o.g.gain;
+  if (p.cancelAndHoldAtTime) p.cancelAndHoldAtTime(t); else p.cancelScheduledValues(t);
+  p.setTargetAtTime(0, t, .01);
+}
+const STU_VOICE = {
+  kick(R, t, v, out) {
+    const c = R.ctx, o = c.createOscillator(), g = c.createGain();
+    o.frequency.setValueAtTime(160, t);
+    o.frequency.exponentialRampToValueAtTime(55, t + .06);
+    o.frequency.exponentialRampToValueAtTime(42, t + .4);
+    stuFall(g.gain, t, v, .45);
+    o.connect(g).connect(out); o.start(t); o.stop(t + .5);
+    const cg = c.createGain(), hp = stuFilter(R, "highpass", 1800);
+    stuFall(cg.gain, t, v * .28, .015);
+    hp.connect(cg).connect(out);
+    stuNoise(R, t, .02, hp);
+  },
+  snare(R, t, v, out) {
+    const c = R.ctx, o = c.createOscillator(), g = c.createGain();
+    o.type = "triangle";
+    o.frequency.setValueAtTime(230, t); o.frequency.exponentialRampToValueAtTime(165, t + .07);
+    stuFall(g.gain, t, v * .6, .12);
+    o.connect(g).connect(out); o.start(t); o.stop(t + .15);
+    const ng = c.createGain(), hp = stuFilter(R, "highpass", 1400);
+    stuFall(ng.gain, t, v * .55, .2);
+    hp.connect(ng).connect(out);
+    stuNoise(R, t, .22, hp);
+  },
+  clap(R, t, v, out) {
+    const g = R.ctx.createGain(), bp = stuFilter(R, "bandpass", 1150, .9);
+    g.gain.setValueAtTime(.0001, t);
+    for (const d of [0, .012, .024]) { g.gain.setValueAtTime(v * 1.4, t + d); g.gain.exponentialRampToValueAtTime(v * .2, t + d + .01); }
+    g.gain.setValueAtTime(v * 1.1, t + .034); g.gain.exponentialRampToValueAtTime(.0001, t + .25);
+    bp.connect(g).connect(out);
+    stuNoise(R, t, .27, bp);
+  },
+  hat(R, t, v, out) { stuChoke(R, t); stuMetal(R, t, v * .6, .05, out); },
+  open(R, t, v, out) { stuChoke(R, t); R.open = { g: stuMetal(R, t, v * .45, .38, out), end: t + .38 }; },
+  tom(R, t, v, out) {
+    const c = R.ctx, o = c.createOscillator(), g = c.createGain();
+    o.frequency.setValueAtTime(210, t); o.frequency.exponentialRampToValueAtTime(105, t + .22);
+    stuFall(g.gain, t, v * .8, .3);
+    o.connect(g).connect(out); o.start(t); o.stop(t + .33);
+  }
+};
+// bass: one oscillator through a resonant low-pass that snaps shut after each note
+function stuBass(R, t, midi, dur, p, out) {
+  const c = R.ctx, o = c.createOscillator(), g = c.createGain();
+  const lo = 90 + p.cutoff ** 2 * 3200, f = stuFilter(R, "lowpass", lo, .8 + p.reso * 14);
+  o.type = p.wave; o.frequency.value = stuHz(midi);
+  f.frequency.setValueAtTime(Math.min(lo * 3 + 500, 14000), t);
+  f.frequency.exponentialRampToValueAtTime(lo, t + Math.max(.05, dur * .9));
+  g.gain.setValueAtTime(.0001, t);
+  g.gain.exponentialRampToValueAtTime(.42, t + .006);
+  g.gain.exponentialRampToValueAtTime(.3, t + dur);
+  g.gain.exponentialRampToValueAtTime(.0001, t + dur + .07);
+  o.connect(f).connect(g).connect(out); o.start(t); o.stop(t + dur + .1);
+}
+// lead: two slightly detuned oscillators for width, with a soft filter pluck
+function stuLead(R, t, midi, dur, p, out) {
+  const c = R.ctx, g = c.createGain(), lo = 300 + p.cutoff ** 2 * 7000, f = stuFilter(R, "lowpass", lo, .7 + p.reso * 10);
+  const hold = t + Math.max(dur, .03);
+  f.frequency.setValueAtTime(Math.min(lo * 2.2, 16000), t);
+  f.frequency.exponentialRampToValueAtTime(lo, t + .18);
+  g.gain.setValueAtTime(.0001, t);
+  g.gain.exponentialRampToValueAtTime(.3, t + .012);
+  g.gain.exponentialRampToValueAtTime(.2, hold);
+  g.gain.exponentialRampToValueAtTime(.0001, hold + .16);
+  f.connect(g).connect(out);
+  for (const cents of [-7, 7]) {
+    const o = c.createOscillator();
+    o.type = p.wave; o.frequency.value = stuHz(midi); o.detune.value = cents;
+    o.connect(f); o.start(t); o.stop(hold + .2);
+  }
+}
+function stuNote(R, s, part, deg, t) {
+  const p = s.synth[part], dur = 60 / s.bpm / 4 * (.25 + p.len * 1.75);
+  (part === "bass" ? stuBass : stuLead)(R, t, stuMidi(s, part, deg), dur, p, R.ch[part].in);
+}
+// everything that sounds on step i, starting at time t
+function stuStep(R, s, i, t) {
+  STU_DRUMS.forEach(d => { const v = s.drums[d.id][i]; if (v && !s.mix[d.id].mute) STU_VOICE[d.id](R, t, v === 2 ? 1 : .72, R.ch[d.id].in); });
+  ["bass", "lead"].forEach(k => { if (s[k][i] >= 0 && !s.mix[k].mute) stuNote(R, s, k, s[k][i], t); });
+}
+// 16-bit stereo WAV from a rendered buffer
+function stuWav(buf) {
+  const ch = buf.numberOfChannels, n = buf.length, dv = new DataView(new ArrayBuffer(44 + n * ch * 2));
+  const str = (o, s) => [...s].forEach((c, i) => dv.setUint8(o + i, c.charCodeAt(0)));
+  str(0, "RIFF"); dv.setUint32(4, 36 + n * ch * 2, true); str(8, "WAVE"); str(12, "fmt ");
+  dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, ch, true); dv.setUint32(24, buf.sampleRate, true);
+  dv.setUint32(28, buf.sampleRate * ch * 2, true); dv.setUint16(32, ch * 2, true); dv.setUint16(34, 16, true);
+  str(36, "data"); dv.setUint32(40, n * ch * 2, true);
+  const data = Array.from({ length: ch }, (_, c) => buf.getChannelData(c));
+  for (let i = 0, o = 44; i < n; i++) for (let c = 0; c < ch; c++, o += 2) { const v = clamp(data[c][i], -1, 1); dv.setInt16(o, v < 0 ? v * 0x8000 : v * 0x7fff, true); }
+  return new Blob([dv], { type: "audio/wav" });
+}
+
 APPS.studio = {
-  name: "Studio", icon: "music", desc: "Build a loop and play it", w: 560, h: 350,
-  mount(body) {
-    const TRACKS = [
-      { nm: "kick",  type: "kick" },
-      { nm: "snare", type: "snare" },
-      { nm: "hat",   type: "hat" },
-      { nm: "bass A", type: "tone", f: 110, wave: "square", d: .22 },
-      { nm: "bass E", type: "tone", f: 82.4, wave: "square", d: .22 },
-      { nm: "lead C", type: "tone", f: 523.3, wave: "triangle", d: .16 },
-      { nm: "lead G", type: "tone", f: 784, wave: "triangle", d: .16 }
-    ];
-    const STEPS = 16;
-    const seed = [
-      "1000100010001000", "0000100000001010", "1010101010101011",
-      "1000000010000000", "0000100000100000", "0010001000000100", "0000000000100010"
-    ];
-    const pat = TRACKS.map((t, i) => seed[i].split("").map(c => c === "1"));
-    let ac = null, playing = false, cur = 0, timer = null, bpm = 108;
+  name: "Studio", icon: "music", desc: "Drum machine with bass and lead synths", w: 780, h: 450, single: true,
+  reopen(r, arg) { if (r.api && arg) r.api.open(arg); },
+  mount(body, win, arg) {
+    let song = stuNorm(cfg.studio) || stuPreset(STU_PRESETS[0]);
+    cfg.studio = song;
+    let part = "drums", paint = null;
+    let ac = null, R = null, playing = false, timer = 0, raf = 0, pos = 0, nextT = 0, shown = -1;
+    const queue = [];
+    const cells = f => Array.from({ length: STU_STEPS }, (_, i) => f(i)).join("");
 
-    body.innerHTML = `<div class="stack">
+    body.innerHTML = `<div class="stu">
       <div class="toolbar">
-        <button class="ctl" data-a="play" style="font-weight:600;min-width:74px">${ico("play")} Play</button>
-        <button class="ctl" data-a="clear">Clear</button>
+        <button class="ctl stu-play" data-a="play" title="Play or stop (Space)"></button>
         <div class="div"></div>
-        <span class="hint">tempo</span>
-        <input type="range" min="70" max="170" value="108" data-a="bpm" style="width:110px">
-        <span class="chip" data-role="bpm">108 bpm</span>
+        <label class="stu-k">tempo <input type="range" min="60" max="180" data-g="bpm"><b data-o="bpm" style="min-width:50px"></b></label>
+        <label class="stu-k">swing <input type="range" min="0" max="66" data-g="swing"><b data-o="swing"></b></label>
+        <div class="sp"></div>
+        <button class="ctl" data-a="beats">Beats ${ico("chev")}</button>
+        <button class="ctl" data-a="file">File ${ico("chev")}</button>
       </div>
-      <div class="seq">${TRACKS.map((t, r) =>
-        `<div class="track"><span class="nm">${t.nm}</span><div class="steps">${Array.from({ length: STEPS }, (_, c) =>
-          `<button class="step ${c % 4 === 0 ? "beat" : ""} ${pat[r][c] ? "on" : ""}" data-r="${r}" data-c="${c}"></button>`).join("")}</div></div>`).join("")}
+      <div class="stu-bar">
+        <div class="seg">${["drums", "bass", "lead"].map((p, i) => `<button class="ctl" data-part="${p}" title="${p} (${i + 1})">${p[0].toUpperCase() + p.slice(1)}</button>`).join("")}</div>
+        <span class="hint" data-role="tip"></span>
+        <span class="sp"></span>
+        <label class="stu-k">key
+          <select class="tb-in" data-g="key" title="Key">${STU_NOTES.map((n, i) => `<option value="${i}">${n}</option>`).join("")}</select>
+          <select class="tb-in" data-g="scale" title="Scale">${Object.entries(STU_SCALES).map(([k, v]) => `<option value="${k}">${v.nm}</option>`).join("")}</select>
+        </label>
+        <canvas class="stu-scope" width="192" height="52"></canvas>
       </div>
+      <div class="stu-main"></div>
+      <div class="stu-sound" hidden></div>
     </div>`;
+    const main = $(".stu-main", body), sound = $(".stu-sound", body), tip = $('[data-role="tip"]', body);
+    const scope = $(".stu-scope", body), sg = scope.getContext("2d"), wave = new Float32Array(2048);
 
-    const cells = $$(".step", body);
-    const at = (r, c) => cells[r * STEPS + c];
-    cells.forEach(b => b.onclick = () => {
-      const r = +b.dataset.r, c = +b.dataset.c;
-      pat[r][c] = !pat[r][c];
-      b.classList.toggle("on", pat[r][c]);
-      if (pat[r][c]) { ensure(); voice(TRACKS[r], ac.currentTime); }
+    const title = () => setWinTitle(win, (song.edited ? "• " : "") + song.name + " · Studio");
+    const touch = () => { song.edited = true; save(); title(); };
+    const stepLen = n => 60 / song.bpm / 4 * (n % 2 ? 1 - song.swing / 200 : 1 + song.swing / 200);
+
+    /* ---- sound ---- */
+    function audio() {
+      if (!ac) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) { toast("No sound", "This browser doesn't have Web Audio"); return false; }
+        ac = new AC(); R = stuRig(ac, true); stuMix(R, song);
+      }
+      if (ac.state === "suspended") ac.resume();
+      return true;
+    }
+    const audition = fn => { if (audio()) fn(ac.currentTime + .01); };
+    // look a little ahead and book notes on the audio clock, so timing never depends on the page being idle
+    function schedule() {
+      while (nextT < ac.currentTime + .12) {
+        stuStep(R, song, pos, nextT);
+        queue.push([pos, nextT]);
+        nextT += stepLen(pos);
+        pos = (pos + 1) % STU_STEPS;
+      }
+    }
+    function play() {
+      if (!audio()) return;
+      playing = true; pos = 0; queue.length = 0; nextT = ac.currentTime + .05;
+      schedule();
+      timer = setInterval(schedule, 25);
+      if (!raf) raf = requestAnimationFrame(frame);
+      syncPlay();
+    }
+    function stop() {
+      playing = false; clearInterval(timer); queue.length = 0;
+      showStep(-1); syncPlay();
+    }
+    function frame() {
+      raf = 0;
+      if (!playing) { drawScope(true); return; }
+      let cur = -1;
+      while (queue.length && queue[0][1] <= ac.currentTime) cur = queue.shift()[0];
+      if (cur >= 0) showStep(cur);
+      drawScope(false);
+      raf = requestAnimationFrame(frame);
+    }
+    function drawScope(flat) {
+      const w = scope.width, h = scope.height;
+      sg.fillStyle = "#12171a"; sg.fillRect(0, 0, w, h);
+      if (flat || !R) wave.fill(0); else R.scope.getFloatTimeDomainData(wave);
+      // start at a rising zero crossing so the trace holds still
+      let s = 0;
+      for (let i = 1; i < wave.length / 2; i++) if (wave[i - 1] < 0 && wave[i] >= 0) { s = i; break; }
+      sg.strokeStyle = cfg.accent; sg.lineWidth = 2; sg.beginPath();
+      for (let x = 0; x < w; x++) { const y = h / 2 - clamp(wave[s + x * 4] || 0, -1, 1) * h * .45; x ? sg.lineTo(x, y) : sg.moveTo(x, y); }
+      sg.stroke();
+    }
+    function showStep(i) {
+      if (i === shown) return;
+      $$(".cur", main).forEach(n => n.classList.remove("cur"));
+      shown = i;
+      if (i >= 0) $$(`[data-i="${i}"]`, main).forEach(n => n.classList.add("cur"));
+    }
+
+    /* ---- drawing ---- */
+    function syncPlay() {
+      const b = $('[data-a="play"]', body);
+      b.innerHTML = playing ? ico("stop") + " Stop" : ico("play") + " Play";
+      b.classList.toggle("on", playing);
+    }
+    function syncGlobals() {
+      $('[data-g="bpm"]', body).value = song.bpm; $('[data-o="bpm"]', body).textContent = song.bpm + " bpm";
+      $('[data-g="swing"]', body).value = song.swing; $('[data-o="swing"]', body).textContent = song.swing + "%";
+      $('[data-g="key"]', body).value = song.key; $('[data-g="scale"]', body).value = song.scale;
+    }
+    function render() {
+      $$("[data-part]", body).forEach(b => b.classList.toggle("on", b.dataset.part === part));
+      const leds = `<div class="stu-row stu-leds"><span class="stu-lbl"></span>${part === "drums" ? '<span class="stu-m"></span>' : ""}<div class="stu-cells">${cells(i => `<i class="led" data-i="${i}"></i>`)}</div></div>`;
+      if (part === "drums") {
+        main.innerHTML = `<div class="stu-grid">${leds}${STU_DRUMS.map(d => {
+          const lane = song.drums[d.id], m = song.mix[d.id];
+          return `<div class="stu-row${m.mute ? " muted" : ""}" data-lane="${d.id}">
+            <button class="stu-lbl" data-hit="${d.id}" title="Hear the ${d.nm.toLowerCase()}">${d.nm}</button>
+            <button class="stu-m${m.mute ? " on" : ""}" data-mute="${d.id}" title="Mute">M</button>
+            <div class="stu-cells">${cells(i => `<button class="step${lane[i] ? " on" : ""}${lane[i] === 2 ? " acc" : ""}" data-i="${i}"></button>`)}</div>
+            <input type="range" class="stu-vol" min="0" max="100" value="${Math.round(m.vol * 100)}" data-vol="${d.id}" title="Volume">
+          </div>`;
+        }).join("")}</div>`;
+        tip.textContent = "click or drag to add hits · right-click for an accent · Space plays";
+      } else {
+        const notes = song[part], n = STU_SCALES[song.scale].steps.length;
+        main.innerHTML = `<div class="stu-grid stu-roll ${part}${song.mix[part].mute ? " muted" : ""}">${leds}${Array.from({ length: STU_ROWS }, (_, r) => STU_ROWS - 1 - r).map(deg => `
+          <div class="stu-row${deg % n === 0 ? " root" : ""}" data-deg="${deg}">
+            <button class="stu-lbl" data-note="${deg}" title="Hear this note">${stuName(stuMidi(song, part, deg))}</button>
+            <div class="stu-cells">${cells(i => `<button class="step${notes[i] === deg ? " on" : ""}" data-i="${i}"></button>`)}</div>
+          </div>`).join("")}</div>`;
+        tip.textContent = "one note per step · drag to draw a line · Space plays";
+      }
+      const s = shown; shown = -1; showStep(s);
+      renderSound();
+    }
+    function renderSound() {
+      sound.hidden = part === "drums";
+      if (part === "drums") return;
+      const p = song.synth[part], m = song.mix[part];
+      const knob = (k, label) => `<label class="stu-k">${label} <input type="range" min="0" max="100" value="${Math.round(p[k] * 100)}" data-syn="${k}"></label>`;
+      sound.innerHTML = `
+        <div class="seg">${STU_WAVES.map(([w, nm]) => `<button class="ctl${p.wave === w ? " on" : ""}" data-wave="${w}">${nm}</button>`).join("")}</div>
+        ${knob("cutoff", "cutoff")}${knob("reso", "reso")}${knob("len", "length")}${part === "lead" ? knob("echo", "echo") : ""}
+        <span class="sp"></span>
+        <button class="stu-m${m.mute ? " on" : ""}" data-mute="${part}" title="Mute">M</button>
+        <label class="stu-k">vol <input type="range" min="0" max="100" value="${Math.round(m.vol * 100)}" data-vol="${part}"></label>`;
+    }
+
+    /* ---- painting the grid ---- */
+    function apply(cell) {
+      const row = cell.closest(".stu-row"), i = +cell.dataset.i;
+      if (!row || row.classList.contains("stu-leds")) return;
+      if (part === "drums") {
+        const lane = song.drums[row.dataset.lane];
+        if (row.dataset.lane !== paint.lane || lane[i] === paint.val) return;
+        lane[i] = paint.val;
+        cell.classList.toggle("on", paint.val > 0); cell.classList.toggle("acc", paint.val === 2);
+        if (paint.val && !playing) audition(t => STU_VOICE[paint.lane](R, t, paint.val === 2 ? 1 : .72, R.ch[paint.lane].in));
+      } else {
+        const deg = +row.dataset.deg, notes = song[part];
+        if (paint.erase ? notes[i] !== deg : notes[i] === deg) return;
+        notes[i] = paint.erase ? -1 : deg;
+        $$(`.step[data-i="${i}"]`, main).forEach(c => c.classList.toggle("on", +c.closest(".stu-row").dataset.deg === notes[i]));
+        if (!paint.erase && !playing) audition(t => stuNote(R, song, part, deg, t));
+      }
+      touch();
+    }
+    main.addEventListener("pointerdown", e => {
+      const cell = e.target.closest(".step");
+      if (!cell) return;
+      e.preventDefault();
+      const row = cell.closest(".stu-row"), i = +cell.dataset.i;
+      if (part === "drums") {
+        const cur = song.drums[row.dataset.lane][i];
+        paint = { lane: row.dataset.lane, val: e.button === 2 || e.shiftKey ? (cur === 2 ? 1 : 2) : cur ? 0 : 1 };
+      } else paint = { erase: song[part][i] === +row.dataset.deg };
+      apply(cell);
     });
+    // elementFromPoint rather than pointerover, so dragging works with a finger too
+    main.addEventListener("pointermove", e => {
+      if (!paint) return;
+      const hit = document.elementFromPoint(e.clientX, e.clientY), cell = hit && hit.closest(".step");
+      if (cell && main.contains(cell)) apply(cell);
+    });
+    const endPaint = () => { paint = null; };
+    window.addEventListener("pointerup", endPaint);
+    window.addEventListener("pointercancel", endPaint);
+    main.addEventListener("contextmenu", e => { if (e.target.closest(".step")) e.preventDefault(); });
 
-    function ensure() { if (!ac) ac = new (window.AudioContext || window.webkitAudioContext)(); if (ac.state === "suspended") ac.resume(); }
-    function noise(dur) {
-      const n = ac.sampleRate * dur, buf = ac.createBuffer(1, n, ac.sampleRate), d = buf.getChannelData(0);
-      for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
-      const src = ac.createBufferSource(); src.buffer = buf; return src;
-    }
-    function voice(t, when) {
-      const g = ac.createGain(); g.connect(ac.destination);
-      if (t.type === "kick") {
-        const o = ac.createOscillator(); o.type = "sine";
-        o.frequency.setValueAtTime(140, when); o.frequency.exponentialRampToValueAtTime(46, when + .12);
-        g.gain.setValueAtTime(.34, when); g.gain.exponentialRampToValueAtTime(.001, when + .26);
-        o.connect(g); o.start(when); o.stop(when + .3);
-      } else if (t.type === "snare" || t.type === "hat") {
-        const isHat = t.type === "hat";
-        const src = noise(isHat ? .05 : .2);
-        const f = ac.createBiquadFilter(); f.type = "highpass"; f.frequency.value = isHat ? 7200 : 1400;
-        g.gain.setValueAtTime(isHat ? .12 : .22, when);
-        g.gain.exponentialRampToValueAtTime(.001, when + (isHat ? .05 : .18));
-        src.connect(f); f.connect(g); src.start(when); src.stop(when + .25);
-      } else {
-        const o = ac.createOscillator(); o.type = t.wave; o.frequency.value = t.f;
-        g.gain.setValueAtTime(.001, when);
-        g.gain.exponentialRampToValueAtTime(.16, when + .012);
-        g.gain.exponentialRampToValueAtTime(.001, when + t.d);
-        o.connect(g); o.start(when); o.stop(when + t.d + .05);
-      }
-    }
-    function tick() {
-      cells.forEach(b => b.classList.remove("cur"));
-      for (let r = 0; r < TRACKS.length; r++) {
-        at(r, cur).classList.add("cur");
-        if (pat[r][cur]) voice(TRACKS[r], ac.currentTime + .01);
-      }
-      cur = (cur + 1) % STEPS;
-    }
-    function toggle() {
-      const btn = $('[data-a="play"]', body);
-      if (playing) {
-        playing = false; clearInterval(timer); cells.forEach(b => b.classList.remove("cur"));
-        btn.innerHTML = ico("play") + " Play"; btn.classList.remove("on");
-      } else {
-        ensure(); playing = true; cur = 0;
-        timer = setInterval(tick, 60000 / bpm / 4);
-        btn.innerHTML = ico("stop") + " Stop"; btn.classList.add("on");
-      }
-    }
-    $('[data-a="play"]', body).onclick = toggle;
-    $('[data-a="clear"]', body).onclick = () => { pat.forEach(r => r.fill(false)); cells.forEach(b => b.classList.remove("on")); };
-    $('[data-a="bpm"]', body).oninput = e => {
-      bpm = +e.target.value;
-      $('[data-role="bpm"]', body).textContent = bpm + " bpm";
-      if (playing) { clearInterval(timer); timer = setInterval(tick, 60000 / bpm / 4); }
+    /* ---- controls ---- */
+    body.addEventListener("input", e => {
+      const t = e.target, d = t.dataset;
+      if (d.g === "bpm" || d.g === "swing") { song[d.g] = +t.value; syncGlobals(); }
+      else if (d.vol) song.mix[d.vol].vol = t.value / 100;
+      else if (d.syn) song.synth[part][d.syn] = t.value / 100;
+      else return;
+      if (R) stuMix(R, song);
+      touch();
+    });
+    body.addEventListener("change", e => {
+      const d = e.target.dataset;
+      if (d.g !== "key" && d.g !== "scale") return;
+      song[d.g] = d.g === "key" ? +e.target.value : e.target.value;
+      touch(); render();
+    });
+    body.addEventListener("click", e => {
+      const b = e.target.closest("button"), d = b ? b.dataset : {};
+      if (!b) return;
+      if (d.a === "play") playing ? stop() : play();
+      else if (d.a === "beats") beatsMenu(b);
+      else if (d.a === "file") fileMenu(b);
+      else if (d.part) { part = d.part; render(); }
+      else if (d.mute) { const m = song.mix[d.mute]; m.mute = !m.mute; if (R) stuMix(R, song); touch(); render(); }
+      else if (d.hit) audition(t => STU_VOICE[d.hit](R, t, 1, R.ch[d.hit].in));
+      else if (d.note) audition(t => stuNote(R, song, part, +d.note, t));
+      else if (d.wave) { song.synth[part].wave = d.wave; touch(); renderSound(); audition(t => stuNote(R, song, part, 0, t)); }
+    });
+    const onKey = e => {
+      if (focused !== win.id || e.ctrlKey || e.metaKey || e.altKey || $("#modal").classList.contains("open")) return;
+      const t = e.target;
+      if (t.tagName === "TEXTAREA" || t.tagName === "SELECT" || (t.tagName === "INPUT" && t.type !== "range")) return;
+      if (e.code === "Space") { e.preventDefault(); playing ? stop() : play(); }
+      else if (/^[123]$/.test(e.key)) { part = ["drums", "bass", "lead"][+e.key - 1]; render(); }
     };
-    return () => { clearInterval(timer); if (ac) ac.close(); };
+    window.addEventListener("keydown", onKey);
+
+    /* ---- beats, files, export ---- */
+    const menuAt = (btn, items) => { const r = btn.getBoundingClientRect(); showMenu(r.left, r.bottom + 4, items); };
+    async function replace(next) {
+      if (song.edited && !(await ask({ title: `Open “${next.name}”?`, msg: `“${song.name}” has changes that aren't saved to a file. They'll be lost.`, input: false, ok: "Open anyway" }))) return;
+      song = next; song.edited = false; cfg.studio = song; save();
+      if (R) stuMix(R, song);
+      syncGlobals(); render(); title();
+    }
+    function beatsMenu(btn) {
+      menuAt(btn, [
+        ...STU_PRESETS.map(p => ({ label: p.name, fn: () => replace(stuPreset(p)) })),
+        { sep: 1 },
+        { label: "Clear the " + part, fn: () => { if (part === "drums") STU_DRUMS.forEach(d => song.drums[d.id].fill(0)); else song[part].fill(-1); touch(); render(); } },
+        { label: "New empty beat", fn: () => replace(stuBlank()) }
+      ]);
+    }
+    function fileMenu(btn) {
+      const dir = HOME + "/Music";
+      const beats = Object.keys(FS).filter(k => dirname(k) === dir && FS[k].t === "f" && extOf(k) === "beat").sort((a, b) => FS[b].m - FS[a].m).slice(0, 8);
+      menuAt(btn, [
+        { label: "Save to Music…", fn: saveBeat },
+        { label: "Export WAV…", fn: exportWav },
+        { sep: 1 },
+        ...(beats.length ? beats.map(p => ({ label: "Open " + basename(p).slice(0, -5), fn: () => win.api.open(p) })) : [{ label: "No saved beats in ~/Music yet", fn() {} }])
+      ]);
+    }
+    async function saveBeat() {
+      const v = (await ask({ title: "Save beat", msg: "Saved into ~/Music as a .beat file.", value: song.name }) || "").trim().replace(/[/\\]/g, "-").replace(/\.beat$/i, "");
+      if (!v) return;
+      const p = HOME + "/Music/" + v + ".beat";
+      if (isDir(p)) return toast("Can't save", v + ".beat is a folder");
+      if (exists(p) && !(await ask({ title: `Replace “${v}”?`, msg: "A beat with that name is already in Music.", input: false, ok: "Replace" }))) return;
+      song.name = v; song.edited = false;
+      writeFile(p, stuSerialize(song)); refreshFiles(); save(); title();
+      toast("Beat saved", "~/Music/" + v + ".beat");
+    }
+    async function exportWav() {
+      const OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+      if (!OAC) return toast("Can't export", "This browser can't render audio offline");
+      const v = await ask({ title: "Export WAV", msg: "How many times should the loop play? The file downloads to your computer.", value: "4" });
+      if (v == null) return;
+      const loops = clamp(parseInt(v, 10) || 4, 1, 32), steps = loops * STU_STEPS, sr = 44100;
+      let len = 0;
+      for (let n = 0; n < steps; n++) len += stepLen(n);
+      const oc = new OAC(2, Math.ceil(sr * (len + 1.8)), sr), r = stuRig(oc, false);
+      stuMix(r, song, true);
+      for (let n = 0, t = .02; n < steps; t += stepLen(n), n++) stuStep(r, song, n % STU_STEPS, t);
+      const a = el("a");
+      a.href = URL.createObjectURL(stuWav(await oc.startRendering()));
+      a.download = song.name.replace(/[^\w .-]+/g, "_") + ".wav";
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+      toast("Exported", `${a.download} · ${len.toFixed(1)} s`);
+    }
+
+    win.api = {
+      open(p) {
+        if (!p || !exists(p) || isDir(p)) return;
+        let s = null;
+        try { s = stuNorm(JSON.parse(readFile(p) || "")); } catch (e) {}
+        if (!s) return toast("Not a beat file", basename(p));
+        s.name = basename(p).replace(/\.beat$/i, "");
+        replace(s);
+      }
+    };
+    syncGlobals(); syncPlay(); render(); title(); drawScope(true);
+    if (arg) win.api.open(arg);
+    return () => {
+      stop(); cancelAnimationFrame(raf);
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("pointerup", endPaint);
+      window.removeEventListener("pointercancel", endPaint);
+      if (ac) ac.close();
+    };
   }
 };
 
